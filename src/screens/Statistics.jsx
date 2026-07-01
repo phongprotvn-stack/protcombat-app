@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { t, formatDate } from '../i18n';
+import { ChevronDown, ChevronUp, Users, User } from 'lucide-react';
 
 export default function Statistics() {
   const { matches, stats, settings } = useApp();
   const lang = settings.lang;
   const [timeFilter, setTimeFilter] = useState('all');
+  const [showAllTeammate, setShowAllTeammate] = useState(false);
+  const [showAllOpponent, setShowAllOpponent] = useState(false);
 
   // Opponent stats
   const opponentStats = {};
@@ -15,7 +18,9 @@ export default function Statistics() {
     opponentStats[name].total++;
     if (m.result === 'win') opponentStats[name].wins++; else opponentStats[name].losses++;
   });
-  const opponentList = Object.entries(opponentStats).sort((a, b) => b[1].total - a[1].total).slice(0, 10);
+  const opponentList = Object.entries(opponentStats)
+    .sort((a, b) => (b[1].wins / b[1].total) - (a[1].wins / a[1].total))
+    .slice(0, 10);
 
   // Teammate stats
   const teammateStats = {};
@@ -26,7 +31,11 @@ export default function Statistics() {
     teammateStats[name].total++;
     if (m.result === 'win') teammateStats[name].wins++; else teammateStats[name].losses++;
   });
-  const teammateList = Object.entries(teammateStats).sort((a, b) => b[1].total - a[1].total);
+  const teammateList = Object.entries(teammateStats)
+    .sort((a, b) => (b[1].wins / b[1].total) - (a[1].wins / a[1].total));
+
+  const displayedTeammate = showAllTeammate ? teammateList : teammateList.slice(0, 1);
+  const displayedOpponent = showAllOpponent ? opponentList : opponentList.slice(0, 1);
 
   return (
     <div className="screen screen-enter" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}>
@@ -51,9 +60,26 @@ export default function Statistics() {
         {/* Win Rate by Teammate */}
         {teammateList.length > 0 && (
           <div>
-            <div className="title" style={{ marginBottom: 12 }}>{lang === 'vi' ? 'Tỷ lệ thắng theo Đồng đội' : 'Win Rate by Teammate'}</div>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12,
+            }}>
+              <div className="title" style={{ marginBottom: 0 }}>{lang === 'vi' ? 'Tỷ lệ thắng theo Đồng đội' : 'Win Rate by Teammate'}</div>
+              {teammateList.length > 1 && (
+                <button
+                  onClick={() => setShowAllTeammate(!showAllTeammate)}
+                  style={{
+                    border: 'none', background: '#F4F4F6', borderRadius: 999,
+                    padding: '6px 12px', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                    color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: 4,
+                  }}
+                >
+                  {showAllTeammate ? (lang === 'vi' ? 'Thu gọn' : 'Collapse') : (lang === 'vi' ? 'Xem tất cả' : 'See all')}
+                  {showAllTeammate ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                </button>
+              )}
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {teammateList.map(([name, data]) => {
+              {displayedTeammate.map(([name, data]) => {
                 const wr = data.total > 0 ? Math.round((data.wins / data.total) * 100) : 0;
                 return (
                   <div key={name} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }}>
@@ -73,14 +99,31 @@ export default function Statistics() {
 
         {/* Win Rate by Opponent */}
         <div>
-          <div className="title" style={{ marginBottom: 12 }}>{lang === 'vi' ? 'Tỷ lệ thắng theo Đối thủ' : 'Win Rate by Opponent'}</div>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12,
+          }}>
+            <div className="title" style={{ marginBottom: 0 }}>{lang === 'vi' ? 'Tỷ lệ thắng theo Đối thủ' : 'Win Rate by Opponent'}</div>
+            {opponentList.length > 1 && (
+              <button
+                onClick={() => setShowAllOpponent(!showAllOpponent)}
+                style={{
+                  border: 'none', background: '#F4F4F6', borderRadius: 999,
+                  padding: '6px 12px', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                  color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: 4,
+                }}
+              >
+                {showAllOpponent ? (lang === 'vi' ? 'Thu gọn' : 'Collapse') : (lang === 'vi' ? 'Xem tất cả' : 'See all')}
+                {showAllOpponent ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </button>
+            )}
+          </div>
           {opponentList.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: 20 }}>
               {lang === 'vi' ? 'Chưa có dữ liệu' : 'No data yet'}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {opponentList.map(([name, data]) => {
+              {displayedOpponent.map(([name, data]) => {
                 const wr = data.total > 0 ? Math.round((data.wins / data.total) * 100) : 0;
                 return (
                   <div key={name} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }}>

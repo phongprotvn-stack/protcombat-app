@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  Calendar, User, Users, Trophy, NotebookPen,
+  Calendar, User, Users, Trophy, NotebookPen, Volleyball,
   ChevronLeft, ChevronRight, Plus, Minus, Check, X,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
@@ -21,7 +21,6 @@ export default function RecordMatch() {
   const [myScore, setMyScore] = useState(0);
   const [opScore, setOpScore] = useState(0);
   const [opponent, setOpponent] = useState('');
-  const [opponentInput, setOpponentInput] = useState('');
   const [teammate, setTeammate] = useState('');
   const [skillLevel, setSkillLevel] = useState('');
   const [note, setNote] = useState('');
@@ -29,6 +28,7 @@ export default function RecordMatch() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTeammatePicker, setShowTeammatePicker] = useState(false);
   const [showOpponentPicker, setShowOpponentPicker] = useState(false);
+  const dateRef = useRef(null);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -41,7 +41,7 @@ export default function RecordMatch() {
       return;
     }
     const result = myScore > opScore ? 'win' : 'loss';
-    const finalOpponent = opponentInput.trim() || opponent || t('anonymous', lang);
+    const finalOpponent = opponent || t('anonymous', lang);
     addMatch({
       date, doubles, serve, myScore, opScore,
       opponent: finalOpponent,
@@ -50,18 +50,10 @@ export default function RecordMatch() {
       note, result,
     });
     showToast(t('saveSuccess', lang));
-    setMyScore(0); setOpScore(0); setOpponentInput('');
+    setMyScore(0); setOpScore(0);
     setOpponent(''); setTeammate(''); setSkillLevel('');
     setNote(''); setServe('before'); setDate(todayStr);
   };
-
-  // Opponents from both account lists and match history
-  const existingOpponents = useMemo(() => {
-    const { matches } = settings;
-    // We can't access matches directly here since we only have settings
-    // But the user can type any opponent name
-    return lists.opponents;
-  }, [lists.opponents]);
 
   return (
     <div className="screen screen-enter" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}>
@@ -70,7 +62,7 @@ export default function RecordMatch() {
         <div className="h2">{t('recordMatch', lang)}</div>
 
         {/* ===== MODE SELECTOR ===== */}
-        <div className="card">
+        <div className="card" style={{ padding: '10px 14px' }}>
           <div className="segmented">
             <button className={!doubles ? 'active' : ''} onClick={() => { setDoubles(false); setTeammate(''); }}>
               {t('singles', lang)}
@@ -81,89 +73,78 @@ export default function RecordMatch() {
           </div>
         </div>
 
-        {/* ===== ĐỒNG ĐỘI (only when doubles) ===== */}
+        {/* ===== ĐỒNG ĐỘI (flight-booking style "Hành khách") ===== */}
         {doubles && (
-          <div className="card">
-            <p className="caption" style={{ marginBottom: 10 }}>
-              <Users size={13} color="var(--color-primary)" style={{ verticalAlign: -2, marginRight: 6 }} />
-              {t('teammate', lang)}
-            </p>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div
               onClick={() => setShowTeammatePicker(true)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                background: '#F4F4F6', borderRadius: 16,
-                padding: '14px 16px', cursor: 'pointer',
-                justifyContent: 'space-between',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '16px 18px', cursor: 'pointer',
+                transition: 'background 0.15s',
               }}
             >
-              <span style={{ fontSize: 14, fontWeight: teammate ? 700 : 500, color: teammate ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
-                {teammate || (lang === 'vi' ? 'Chọn đồng đội...' : 'Select teammate...')}
-              </span>
-              {teammate && (
-                <X size={16} color="var(--color-text-muted)" onClick={(e) => { e.stopPropagation(); setTeammate(''); }}
-                  style={{ cursor: 'pointer' }} />
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Users size={18} color="var(--color-primary)" strokeWidth={1.8} />
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: 2 }}>
+                    {t('teammate', lang)}
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: teammate ? 'var(--color-text-primary)' : '#B0B0B0' }}>
+                    {teammate || (lang === 'vi' ? 'Chọn đồng đội...' : 'Select teammate...')}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {teammate && (
+                  <X size={16} color="var(--color-text-muted)" onClick={(e) => { e.stopPropagation(); setTeammate(''); }}
+                    style={{ cursor: 'pointer' }} />
+                )}
+                <ChevronRight size={16} color="var(--color-text-muted)" strokeWidth={2} />
+              </div>
             </div>
           </div>
         )}
 
-        {/* ===== ĐỐI THỦ ===== */}
-        <div className="card">
-          <p className="caption" style={{ marginBottom: 10 }}>
-            <User size={13} color="var(--color-primary)" style={{ verticalAlign: -2, marginRight: 6 }} />
-            {t('opponent', lang)}
-          </p>
+        {/* ===== ĐỐI THỦ (flight-booking style "Hành khách") ===== */}
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div
+            onClick={() => setShowOpponentPicker(true)}
             style={{
-              display: 'flex', gap: 8, alignItems: 'center',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 18px', cursor: 'pointer',
+              transition: 'background 0.15s',
             }}
           >
-            <input
-              type="text"
-              value={opponentInput}
-              onChange={(e) => setOpponentInput(e.target.value)}
-              placeholder={lang === 'vi' ? 'Nhập tên đối thủ...' : 'Enter opponent name...'}
-              className="input-pill"
-              style={{ flex: 1 }}
-            />
-            <button
-              onClick={() => setShowOpponentPicker(true)}
-              style={{
-                padding: '10px 16px', borderRadius: 999,
-                border: 'none', background: '#F4F4F6',
-                cursor: 'pointer', fontSize: 12, fontWeight: 700,
-                color: 'var(--color-text-secondary)',
-                display: 'flex', alignItems: 'center', gap: 4,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {lang === 'vi' ? 'Danh sách' : 'List'}
-            </button>
-          </div>
-          {lists.opponents.length > 0 && opponentInput === '' && !opponent && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-              {lists.opponents.slice(0, 5).map(name => (
-                <div key={name}
-                  onClick={() => setOpponentInput(name)}
-                  style={{
-                    padding: '6px 14px', borderRadius: 999,
-                    background: '#F4F4F6', fontSize: 12, fontWeight: 600,
-                    cursor: 'pointer', color: 'var(--color-text-secondary)',
-                    transition: 'all 0.15s',
-                  }}
-                >{name}</div>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <User size={18} color="var(--color-primary)" strokeWidth={1.8} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: 2 }}>
+                  {t('opponent', lang)}
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: opponent ? 'var(--color-text-primary)' : '#B0B0B0' }}>
+                  {opponent || (lang === 'vi' ? 'Chọn đối thủ...' : 'Select opponent...')}
+                </div>
+              </div>
             </div>
-          )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {opponent && (
+                <X size={16} color="var(--color-text-muted)" onClick={(e) => { e.stopPropagation(); setOpponent(''); }}
+                  style={{ cursor: 'pointer' }} />
+              )}
+              <ChevronRight size={16} color="var(--color-text-muted)" strokeWidth={2} />
+            </div>
+          </div>
         </div>
 
         {/* ===== TRÌNH ĐỘ ===== */}
-        <div className="card">
-          <p className="caption" style={{ marginBottom: 10 }}>
-            <Trophy size={13} color="var(--color-primary)" style={{ verticalAlign: -2, marginRight: 6 }} />
-            {t('skillLevel', lang)}
-          </p>
+        <div className="card" style={{ padding: '16px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Trophy size={16} color="var(--color-primary)" strokeWidth={1.8} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>
+              {t('skillLevel', lang)}
+            </span>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {SKILL_LEVELS.map(sk => (
               <SelectChip
@@ -176,37 +157,32 @@ export default function RecordMatch() {
           </div>
         </div>
 
-        {/* ===== NGÀY ===== */}
-        <div className="card" style={{ position: 'relative' }}>
-          <p className="caption" style={{ marginBottom: 10 }}>
-            <Calendar size={13} color="var(--color-primary)" style={{ verticalAlign: -2, marginRight: 6 }} />
-            {t('date', lang)}
-          </p>
+        {/* ===== NGÀY (flight-booking style "Ngày đi") ===== */}
+        <div className="card" style={{ position: 'relative', padding: 0, overflow: 'hidden' }}>
           <div
+            ref={dateRef}
             onClick={() => setShowDatePicker(!showDatePicker)}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: '#F4F4F6',
-              borderRadius: 16,
-              padding: '14px 18px',
-              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 18px', cursor: 'pointer',
               transition: 'background 0.15s',
             }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                {formatDateDisplay(date, lang)}
-              </span>
-              <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 600 }}>
-                {getDayName(date, lang)}, {dateDisplay(date, lang)}
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Calendar size={18} color="var(--color-primary)" strokeWidth={1.8} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: 2 }}>
+                  {t('date', lang)}
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                  {formatFlightDate(date, lang)}
+                </div>
+              </div>
             </div>
-            <Calendar size={20} color="var(--color-primary)" />
+            <ChevronRight size={16} color="var(--color-text-muted)" strokeWidth={2} />
           </div>
 
-          {/* Calendar popover ABOVE the date field */}
+          {/* Calendar popover ABOVE-LEFT */}
           {showDatePicker && (
             <div style={{
               position: 'absolute',
@@ -215,7 +191,7 @@ export default function RecordMatch() {
               right: 0,
               zIndex: 300,
               marginBottom: 8,
-              animation: 'fadeIn 0.2s ease',
+              animation: 'fadeIn 0.18s ease',
             }}>
               <DatePickerPopup
                 selected={date}
@@ -227,12 +203,14 @@ export default function RecordMatch() {
           )}
         </div>
 
-        {/* ===== GIAO BÓNG ===== */}
-        <div className="card">
-          <p className="caption" style={{ marginBottom: 10 }}>
-            <span style={{ marginRight: 6 }}>🎾</span>
-            {t('serve', lang)}
-          </p>
+        {/* ===== GIAO BÓNG (Volleyball icon) ===== */}
+        <div className="card" style={{ padding: '16px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Volleyball size={16} color="var(--color-primary)" strokeWidth={1.8} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>
+              {t('serve', lang)}
+            </span>
+          </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <SelectChip
               active={serve === 'before'}
@@ -249,12 +227,14 @@ export default function RecordMatch() {
           </div>
         </div>
 
-        {/* ===== TỶ SỐ (stepper) ===== */}
-        <div className="card">
-          <p className="caption" style={{ marginBottom: 10 }}>
-            <Trophy size={13} color="var(--color-primary)" style={{ verticalAlign: -2, marginRight: 4 }} />
-            {t('score', lang)}
-          </p>
+        {/* ===== TỶ SỐ ===== */}
+        <div className="card" style={{ padding: '16px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Trophy size={16} color="var(--color-primary)" strokeWidth={1.8} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>
+              {t('score', lang)}
+            </span>
+          </div>
           <div className="stepper-score">
             <div className="ss-side">
               <label>{t('me', lang)}</label>
@@ -314,11 +294,13 @@ export default function RecordMatch() {
         </div>
 
         {/* ===== GHI CHÚ ===== */}
-        <div className="card">
-          <p className="caption" style={{ marginBottom: 8 }}>
-            <NotebookPen size={13} color="var(--color-primary)" style={{ verticalAlign: -2, marginRight: 4 }} />
-            {t('note', lang)}
-          </p>
+        <div className="card" style={{ padding: '16px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <NotebookPen size={16} color="var(--color-primary)" strokeWidth={1.8} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>
+              {t('note', lang)}
+            </span>
+          </div>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -338,7 +320,7 @@ export default function RecordMatch() {
         </button>
       </div>
 
-      {/* ===== TEAMMATE PICKER MODAL ===== */}
+      {/* ===== TEAMMATE PICKER MODAL (check mark on RIGHT) ===== */}
       {showTeammatePicker && (
         <ListPickerModal
           title={t('teammate', lang)}
@@ -350,14 +332,14 @@ export default function RecordMatch() {
         />
       )}
 
-      {/* ===== OPPONENT PICKER MODAL ===== */}
+      {/* ===== OPPONENT PICKER MODAL (check mark on RIGHT) ===== */}
       {showOpponentPicker && (
         <ListPickerModal
           title={t('opponent', lang)}
           items={lists.opponents}
-          selected={opponentInput || opponent}
+          selected={opponent}
           lang={lang}
-          onSelect={(name) => { setOpponentInput(name); setShowOpponentPicker(false); }}
+          onSelect={(name) => { setOpponent(name); setShowOpponentPicker(false); }}
           onClose={() => setShowOpponentPicker(false)}
         />
       )}
@@ -385,7 +367,7 @@ function SelectChip({ active, label, onClick, style }) {
   );
 }
 
-/* ===== LIST PICKER MODAL (flight seat style) ===== */
+/* ===== LIST PICKER MODAL (flight "Hạng ghế" style - check on RIGHT) ===== */
 function ListPickerModal({ title, items, selected, lang, onSelect, onClose }) {
   return (
     <div onClick={onClose}
@@ -420,8 +402,8 @@ function ListPickerModal({ title, items, selected, lang, onSelect, onClose }) {
           ><X size={18} /></button>
         </div>
 
-        {/* List */}
-        <div style={{ overflowY: 'auto', padding: '8px 0', flex: 1 }}>
+        {/* List with check on RIGHT */}
+        <div style={{ overflowY: 'auto', padding: '4px 0', flex: 1 }}>
           {items.length === 0 ? (
             <div style={{
               textAlign: 'center', padding: 32, color: 'var(--color-text-muted)',
@@ -434,29 +416,31 @@ function ListPickerModal({ title, items, selected, lang, onSelect, onClose }) {
               key={name}
               onClick={() => onSelect(name)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 14,
-                padding: '14px 24px', cursor: 'pointer',
-                transition: 'background 0.15s',
-                background: name === selected ? 'rgba(230,0,45,0.04)' : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '16px 24px', cursor: 'pointer',
+                transition: 'background 0.12s',
+                background: name === selected ? 'rgba(230,0,45,0.06)' : 'transparent',
+                borderBottom: '1px solid #F8F8FA',
               }}
             >
-              {/* Check circle */}
+              <span style={{
+                fontSize: 15, fontWeight: name === selected ? 700 : 500,
+                color: 'var(--color-text-primary)',
+              }}>{name}</span>
+
+              {/* Radio check on RIGHT */}
               <div style={{
-                width: 24, height: 24, borderRadius: '50%',
-                border: name === selected ? '6px solid var(--color-primary)' : '2px solid #D1D5DB',
+                width: 22, height: 22, borderRadius: '50%',
+                border: name === selected ? '5px solid var(--color-primary)' : '2px solid #D1D5DB',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
                 transition: 'all 0.2s',
               }}>
                 {name === selected && <div style={{
-                  width: 10, height: 10, borderRadius: '50%',
+                  width: 12, height: 12, borderRadius: '50%',
                   background: 'var(--color-primary)',
                 }} />}
               </div>
-              <span style={{
-                fontSize: 15, fontWeight: name === selected ? 700 : 500,
-                color: 'var(--color-text-primary)',
-              }}>{name}</span>
             </div>
           ))}
         </div>
@@ -471,24 +455,21 @@ function dateToStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function formatDateDisplay(dateStr, lang) {
+/* Flight-booking date format: "T4, 1 thg 7" (vi) or "Wed, Jul 1" (en) */
+function formatFlightDate(dateStr, lang) {
   const d = new Date(dateStr + 'T00:00:00');
+  const dayName = getDayName(dateStr, lang);
   const day = d.getDate();
-  const month = lang === 'vi'
-    ? `Tháng ${d.getMonth() + 1}`
-    : getMonthName(d.getMonth(), lang);
-  const year = d.getFullYear();
-  return lang === 'vi' ? `${getDayName(dateStr, lang)}, ${day} ${month}, ${year}` : `${getDayName(dateStr, lang)}, ${month} ${day}, ${year}`;
+  const month = d.getMonth() + 1;
+
+  if (lang === 'vi') {
+    return `${dayName}, ${day} thg ${month}`;
+  }
+  const monthAbbrs = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${dayName}, ${monthAbbrs[d.getMonth()]} ${day}`;
 }
 
-function dateDisplay(dateStr, lang) {
-  const d = new Date(dateStr + 'T00:00:00');
-  const day = d.getDate();
-  const month = lang === 'vi' ? `Tháng ${d.getMonth() + 1}` : getMonthName(d.getMonth(), lang);
-  return `${day} ${month}`;
-}
-
-/* ===== iOS STYLE CALENDAR POPOVER (ABOVE) ===== */
+/* ===== iOS STYLE CALENDAR POPOVER ===== */
 
 function DatePickerPopup({ selected, lang, onSelect, onClose }) {
   const initialDate = new Date(selected + 'T00:00:00');
@@ -518,41 +499,41 @@ function DatePickerPopup({ selected, lang, onSelect, onClose }) {
     <div style={{
       background: 'var(--color-card)',
       borderRadius: 20,
-      padding: '16px 16px 12px',
+      padding: '14px 14px 10px',
       boxShadow: '0 12px 40px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)',
     }}>
-      {/* Header */}
+      {/* Month nav */}
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10,
       }}>
         <button onClick={prevMonth} style={{
           border: 'none', background: '#F4F4F6', borderRadius: 10,
-          width: 32, height: 32, display: 'flex', alignItems: 'center',
+          width: 30, height: 30, display: 'flex', alignItems: 'center',
           justifyContent: 'center', cursor: 'pointer',
           color: 'var(--color-text-primary)',
         }}>
-          <ChevronLeft size={16} strokeWidth={2.5} />
+          <ChevronLeft size={14} strokeWidth={2.5} />
         </button>
-        <div style={{ fontSize: 15, fontWeight: 700 }}>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>
           {getMonthName(viewMonth, lang)} {viewYear}
         </div>
         <button onClick={nextMonth} style={{
           border: 'none', background: '#F4F4F6', borderRadius: 10,
-          width: 32, height: 32, display: 'flex', alignItems: 'center',
+          width: 30, height: 30, display: 'flex', alignItems: 'center',
           justifyContent: 'center', cursor: 'pointer',
           color: 'var(--color-text-primary)',
         }}>
-          <ChevronRight size={16} strokeWidth={2.5} />
+          <ChevronRight size={14} strokeWidth={2.5} />
         </button>
       </div>
 
       {/* Weekday headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, marginBottom: 4 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, marginBottom: 3 }}>
         {weekdays.map((wd, i) => (
           <div key={i} style={{
             textAlign: 'center', fontSize: 10, fontWeight: 700,
             color: i === 0 || i === 6 ? '#E6002D' : 'var(--color-text-muted)',
-            padding: '4px 0',
+            padding: '3px 0',
           }}>{wd}</div>
         ))}
       </div>
@@ -569,19 +550,18 @@ function DatePickerPopup({ selected, lang, onSelect, onClose }) {
             <button key={i} onClick={() => onSelect(dateStr)}
               style={{
                 aspectRatio: '1', border: 'none',
-                background: isSelected ? 'var(--grad-primary)' : 'transparent',
-                borderRadius: 12, fontSize: 12, fontWeight: isSelected ? 700 : (isToday ? 700 : 500),
+                background: isSelected ? 'var(--color-primary)' : 'transparent',
+                borderRadius: 10, fontSize: 12, fontWeight: isSelected ? 700 : (isToday ? 700 : 500),
                 color: isSelected ? 'white' : (isToday ? 'var(--color-primary)' : 'var(--color-text-primary)'),
                 cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'all 0.15s',
-                boxShadow: isSelected ? '0 3px 10px rgba(230,0,45,0.3)' : 'none',
+                transition: 'all 0.12s',
                 position: 'relative',
               }}
             >
               {d}
               {isToday && !isSelected && (
                 <div style={{
-                  position: 'absolute', bottom: 3, width: 3, height: 3,
+                  position: 'absolute', bottom: 2, width: 3, height: 3,
                   borderRadius: '50%', background: 'var(--color-primary)',
                 }} />
               )}
@@ -591,12 +571,12 @@ function DatePickerPopup({ selected, lang, onSelect, onClose }) {
       </div>
 
       {/* Today button */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
         <button onClick={() => onSelect(dateToStr(new Date()))}
           style={{
-            border: 'none', background: '#F4F4F6', borderRadius: 14,
-            padding: '8px 18px', fontSize: 12, fontWeight: 700,
-            cursor: 'pointer', color: 'var(--color-text-primary)',
+            border: 'none', background: '#F4F4F6', borderRadius: 12,
+            padding: '6px 16px', fontSize: 11, fontWeight: 700,
+            cursor: 'pointer', color: 'var(--color-primary)',
           }}
         >
           {lang === 'vi' ? '📅 Hôm nay' : '📅 Today'}
