@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { Trophy, Search, Swords, ChevronRight, Pencil, Flame, BarChart3 } from 'lucide-react';
+import { Trophy, Search, Swords, ChevronRight, Pencil, Trash2, Flame, BarChart3, Check, X } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { t, formatDate } from '../i18n';
 
-const TEAMMATES_LIST = ['PROT', 'Phong', 'Huy', 'Long', 'Minh', 'Anh', 'Tuấn', 'Hùng', 'Dũng'];
-
 export default function Home() {
-  const { matches, stats, settings, setActiveTab, toggleLang, lists } = useApp();
+  const { matches, stats, settings, setActiveTab, toggleLang, lists, setEditingMatch, deleteMatch } = useApp();
   const lang = settings.lang;
   const greetName = settings.displayName || 'Prot';
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const [showOpponentSearch, setShowOpponentSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,6 +23,16 @@ export default function Home() {
     ? uniqueOpponents.filter(o => o.toLowerCase().includes(searchQuery.toLowerCase()))
     : uniqueOpponents;
 
+  const handleEdit = (match) => {
+    setEditingMatch(match);
+    setActiveTab('record');
+  };
+
+  const handleDelete = (matchId) => {
+    deleteMatch(matchId);
+    setConfirmDelete(null);
+  };
+
   return (
     <div className="screen screen-enter" style={{ paddingTop: 0 }}>
       {/* ========== GRADIENT HEADER ========== */}
@@ -36,7 +45,6 @@ export default function Home() {
           overflow: 'hidden',
         }}
       >
-        {/* Decorative circles */}
         <div style={{
           position: 'absolute', top: -60, right: -40, width: 200, height: 200,
           borderRadius: '50%', background: 'rgba(255,255,255,0.06)',
@@ -46,7 +54,6 @@ export default function Home() {
           borderRadius: '50%', background: 'rgba(255,255,255,0.04)',
         }} />
 
-        {/* Top bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 18 }}>⚔️</span>
@@ -72,55 +79,36 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Greeting */}
         <div style={{ marginTop: 24, position: 'relative', zIndex: 1 }}>
           <div style={{
-            fontSize: 34,
-            fontWeight: 800,
-            letterSpacing: -0.5,
-            lineHeight: 1.1,
-            color: 'white',
+            fontSize: 34, fontWeight: 800, letterSpacing: -0.5,
+            lineHeight: 1.1, color: 'white',
           }}>
             {t('greeting', lang, { name: greetName })}
           </div>
           <div style={{
-            fontSize: 16,
-            fontWeight: 600,
-            opacity: 0.9,
-            marginTop: 6,
-            color: 'white',
-            letterSpacing: 0.2,
+            fontSize: 16, fontWeight: 600, opacity: 0.9, marginTop: 6,
+            color: 'white', letterSpacing: 0.2,
           }}>
             {t('todayQuestion', lang)}
           </div>
         </div>
       </div>
 
-      {/* ========== CONTENT ========== */}
       <div style={{
         padding: '0 var(--space-page-x)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-card-gap)',
+        display: 'flex', flexDirection: 'column', gap: 'var(--space-card-gap)',
         marginTop: 0,
       }}>
         <div style={{ height: 10 }} />
 
         {/* ===== FIND OPPONENT CARD ===== */}
-        <div
-          className="card"
-          style={{
-            cursor: 'pointer',
-            overflow: 'hidden',
-            position: 'relative',
-          }}
+        <div className="card"
+          style={{ cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
           onClick={() => setShowOpponentSearch(!showOpponentSearch)}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div className="icon-badge" style={{
-              width: 48, height: 48,
-              background: 'rgba(230,0,45,0.08)',
-            }}>
+            <div className="icon-badge" style={{ width: 48, height: 48, background: 'rgba(230,0,45,0.08)' }}>
               <Search size={22} color="var(--color-primary)" strokeWidth={2.4} />
             </div>
             <div style={{ flex: 1 }}>
@@ -137,16 +125,12 @@ export default function Home() {
             }} />
           </div>
 
-          {/* Expanded search */}
           {showOpponentSearch && (
             <div style={{ marginTop: 14, animation: 'fadeIn 0.25s ease' }}>
-              <input
-                type="text"
-                value={searchQuery}
+              <input type="text" value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={lang === 'vi' ? 'Tìm tên đối thủ...' : 'Search opponent name...'}
-                className="input-pill"
-                autoFocus
+                className="input-pill" autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
               <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -158,20 +142,15 @@ export default function Home() {
                   </div>
                 ) : (
                   filteredOpponents.slice(0, 5).map(name => (
-                    <div
-                      key={name}
+                    <div key={name}
                       onClick={(e) => { e.stopPropagation(); setActiveTab('stats'); }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 10,
                         padding: '10px 14px', borderRadius: 14,
                         background: '#F8F8FA', cursor: 'pointer',
-                        transition: 'background 0.15s',
                       }}
                     >
-                      <div className="icon-badge" style={{
-                        width: 28, height: 28,
-                        background: 'rgba(230,0,45,0.06)', borderRadius: 10,
-                      }}>
+                      <div className="icon-badge" style={{ width: 28, height: 28, background: 'rgba(230,0,45,0.06)', borderRadius: 10 }}>
                         <span style={{ fontSize: 12 }}>🎯</span>
                       </div>
                       <span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{name}</span>
@@ -185,7 +164,7 @@ export default function Home() {
         </div>
 
         {/* ===== BẮT ĐẦU GHI TRẬN ===== */}
-        <button className="btn-primary" onClick={() => setActiveTab('record')}>
+        <button className="btn-primary" onClick={() => { setEditingMatch(null); setActiveTab('record'); }}>
           <Swords size={20} strokeWidth={2.4} />
           {t('startMatch', lang)}
         </button>
@@ -193,10 +172,7 @@ export default function Home() {
         {/* ===== OVERVIEW CARD ===== */}
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <div className="icon-badge" style={{
-              width: 30, height: 30,
-              background: 'rgba(230,0,45,0.08)',
-            }}>
+            <div className="icon-badge" style={{ width: 30, height: 30, background: 'rgba(230,0,45,0.08)' }}>
               <BarChart3 size={16} color="var(--color-primary)" strokeWidth={2.2} />
             </div>
             <span className="title" style={{ fontSize: 17 }}>
@@ -206,16 +182,9 @@ export default function Home() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             <StatBlock value={stats.totalMatches} label={t('totalMatches', lang)} />
-            <StatBlock
-              value={`${stats.winRate}%`}
-              label={t('winRate', lang)}
-              accent
-            />
-            <StatBlock
-              value={stats.bestStreak.current}
-              label={t('winStreak', lang)}
-              icon={<Flame size={14} color="#E6002D" fill="#FF8A5B" strokeWidth={1.2} />}
-            />
+            <StatBlock value={`${stats.winRate}%`} label={t('winRate', lang)} accent />
+            <StatBlock value={stats.bestStreak.current} label={t('winStreak', lang)}
+              icon={<Flame size={14} color="#E6002D" fill="#FF8A5B" strokeWidth={1.2} />} />
           </div>
         </div>
 
@@ -232,9 +201,7 @@ export default function Home() {
           <div style={{ height: 10, background: '#F1F1F4', borderRadius: 999, overflow: 'hidden' }}>
             <div style={{
               width: `${stats.totalMatches > 0 ? (stats.totalWins / stats.totalMatches) * 100 : 0}%`,
-              height: '100%',
-              background: 'var(--grad-primary)',
-              borderRadius: 999,
+              height: '100%', background: 'var(--grad-primary)', borderRadius: 999,
               transition: 'width 0.6s ease',
             }} />
           </div>
@@ -243,12 +210,9 @@ export default function Home() {
         {/* ===== RECENT MATCHES ===== */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <span className="title" style={{ fontSize: 17 }}>
-              {t('recentMatches', lang)}
-            </span>
+            <span className="title" style={{ fontSize: 17 }}>{t('recentMatches', lang)}</span>
             {matches.length > 0 && (
-              <button
-                onClick={() => setActiveTab('stats')}
+              <button onClick={() => setActiveTab('stats')}
                 style={{
                   border: 'none', background: 'transparent',
                   color: 'var(--color-primary)', fontSize: 13, fontWeight: 700,
@@ -274,18 +238,16 @@ export default function Home() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {matches.slice(0, 5).map((match) => (
                 <div key={match.id} className="card" style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '14px 16px',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
                     <div className="icon-badge" style={{
                       width: 12, height: 12, borderRadius: '50%',
-                      background: match.result === 'win' ? 'var(--grad-primary)' : '#D1D5DB',
+                      background: match.result === 'win' ? 'var(--grad-primary)' : '#D1D5DB', flexShrink: 0,
                     }} />
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         vs {match.opponent || t('anonymous', lang)}
                         <span style={{
                           fontWeight: 800,
@@ -301,16 +263,57 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
-                  <button style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 6 }}>
-                    <Pencil size={15} />
-                  </button>
+
+                  {confirmDelete === match.id ? (
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => handleDelete(match.id)}
+                        style={{
+                          border: 'none', background: 'var(--color-primary)', borderRadius: 8,
+                          padding: '6px 10px', cursor: 'pointer', color: 'white',
+                          display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700,
+                        }}
+                      >
+                        <Check size={14} />
+                        {lang === 'vi' ? 'Xóa' : 'Delete'}
+                      </button>
+                      <button onClick={() => setConfirmDelete(null)}
+                        style={{
+                          border: 'none', background: '#F4F4F6', borderRadius: 8,
+                          padding: '6px 10px', cursor: 'pointer', color: 'var(--color-text-muted)',
+                          display: 'flex', alignItems: 'center',
+                        }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => handleEdit(match)}
+                        style={{
+                          border: 'none', background: '#F4F4F6', borderRadius: 8,
+                          padding: '6px 10px', cursor: 'pointer', color: 'var(--color-text-secondary)',
+                          display: 'flex', alignItems: 'center',
+                        }}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => setConfirmDelete(match.id)}
+                        style={{
+                          border: 'none', background: '#FEE2E2', borderRadius: 8,
+                          padding: '6px 10px', cursor: 'pointer', color: '#DC2626',
+                          display: 'flex', alignItems: 'center',
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Bottom spacer for nav */}
         <div style={{ height: 20 }} />
       </div>
     </div>
@@ -321,25 +324,17 @@ function StatBlock({ value, label, accent, icon }) {
   return (
     <div style={{
       background: accent ? 'rgba(230,0,45,0.06)' : '#F8F8FA',
-      borderRadius: 18,
-      padding: '12px 8px',
-      textAlign: 'center',
+      borderRadius: 18, padding: '12px 8px', textAlign: 'center',
     }}>
       <div style={{
-        fontSize: 22,
-        fontWeight: 800,
+        fontSize: 22, fontWeight: 800,
         color: accent ? 'var(--color-primary)' : 'var(--color-text-primary)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 4,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
       }}>
         {value}
         {icon && icon}
       </div>
-      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--color-text-muted)', marginTop: 2 }}>
-        {label}
-      </div>
+      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--color-text-muted)', marginTop: 2 }}>{label}</div>
     </div>
   );
 }

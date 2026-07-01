@@ -9,7 +9,8 @@ import { t, getDayName, getMonthName } from '../i18n';
 const SKILL_LEVELS = ['level6m', 'level6m1y', 'level1y'];
 
 export default function RecordMatch() {
-  const { addMatch, settings, lists } = useApp();
+  const { addMatch, updateMatch, editingMatch, setEditingMatch } = useApp();
+  const { settings, lists } = useApp();
   const lang = settings.lang;
 
   const today = new Date();
@@ -30,6 +31,21 @@ export default function RecordMatch() {
   const [showOpponentPicker, setShowOpponentPicker] = useState(false);
   const dateRef = useRef(null);
 
+  // Load editing match data
+  useEffect(() => {
+    if (editingMatch) {
+      setDate(editingMatch.date || todayStr);
+      setDoubles(editingMatch.doubles || false);
+      setServe(editingMatch.serve || 'before');
+      setMyScore(editingMatch.myScore || 0);
+      setOpScore(editingMatch.opScore || 0);
+      setOpponent(editingMatch.opponent || '');
+      setTeammate(editingMatch.teammate || '');
+      setSkillLevel(editingMatch.skillLevel || '');
+      setNote(editingMatch.note || '');
+    }
+  }, [editingMatch]);
+
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2000);
@@ -42,14 +58,30 @@ export default function RecordMatch() {
     }
     const result = myScore > opScore ? 'win' : 'loss';
     const finalOpponent = opponent || t('anonymous', lang);
-    addMatch({
-      date, doubles, serve, myScore, opScore,
-      opponent: finalOpponent,
-      teammate: teammate || '',
-      skillLevel: skillLevel || '',
-      note, result,
-    });
-    showToast(t('saveSuccess', lang));
+
+    if (editingMatch) {
+      // Update existing match
+      updateMatch(editingMatch.id, {
+        date, doubles, serve, myScore, opScore,
+        opponent: finalOpponent,
+        teammate: teammate || '',
+        skillLevel: skillLevel || '',
+        note, result,
+      });
+      showToast(lang === 'vi' ? '✅ Đã cập nhật trận đấu!' : '✅ Match updated!');
+      setEditingMatch(null);
+    } else {
+      // Add new match
+      addMatch({
+        date, doubles, serve, myScore, opScore,
+        opponent: finalOpponent,
+        teammate: teammate || '',
+        skillLevel: skillLevel || '',
+        note, result,
+      });
+      showToast(t('saveSuccess', lang));
+    }
+
     setMyScore(0); setOpScore(0);
     setOpponent(''); setTeammate(''); setSkillLevel('');
     setNote(''); setServe('before'); setDate(todayStr);
@@ -59,7 +91,11 @@ export default function RecordMatch() {
     <div className="screen screen-enter" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}>
       <div style={{ padding: '0 var(--space-page-x)', display: 'flex', flexDirection: 'column', gap: 'var(--space-card-gap)' }}>
 
-        <div className="h2">{t('recordMatch', lang)}</div>
+        <div className="h2">
+          {editingMatch
+            ? (lang === 'vi' ? 'Chỉnh sửa trận đấu' : 'Edit Match')
+            : t('recordMatch', lang)}
+        </div>
 
         {/* ===== MODE SELECTOR ===== */}
         <div className="card" style={{ padding: '10px 14px' }}>
@@ -73,15 +109,13 @@ export default function RecordMatch() {
           </div>
         </div>
 
-        {/* ===== ĐỒNG ĐỘI (flight-booking style "Hành khách") ===== */}
+        {/* ===== ĐỒNG ĐỘI (flight-booking style) ===== */}
         {doubles && (
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div
-              onClick={() => setShowTeammatePicker(true)}
+          <div className="card" style={{ padding: 0 }}>
+            <div onClick={() => setShowTeammatePicker(true)}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '16px 18px', cursor: 'pointer',
-                transition: 'background 0.15s',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -106,14 +140,12 @@ export default function RecordMatch() {
           </div>
         )}
 
-        {/* ===== ĐỐI THỦ (flight-booking style "Hành khách") ===== */}
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div
-            onClick={() => setShowOpponentPicker(true)}
+        {/* ===== ĐỐI THỦ (flight-booking style) ===== */}
+        <div className="card" style={{ padding: 0 }}>
+          <div onClick={() => setShowOpponentPicker(true)}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '16px 18px', cursor: 'pointer',
-              transition: 'background 0.15s',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -147,25 +179,20 @@ export default function RecordMatch() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {SKILL_LEVELS.map(sk => (
-              <SelectChip
-                key={sk}
-                active={skillLevel === sk}
-                label={t(sk, lang)}
-                onClick={() => setSkillLevel(skillLevel === sk ? '' : sk)}
-              />
+              <SelectChip key={sk} active={skillLevel === sk} label={t(sk, lang)}
+                onClick={() => setSkillLevel(skillLevel === sk ? '' : sk)} />
             ))}
           </div>
         </div>
 
-        {/* ===== NGÀY (flight-booking style "Ngày đi") ===== */}
-        <div className="card" style={{ position: 'relative', padding: 0, overflow: 'hidden' }}>
+        {/* ===== NGÀY (flight-booking style) ===== */}
+        <div className="card" style={{ position: 'relative', padding: 0 }}>
           <div
             ref={dateRef}
             onClick={() => setShowDatePicker(!showDatePicker)}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '16px 18px', cursor: 'pointer',
-              transition: 'background 0.15s',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -193,9 +220,7 @@ export default function RecordMatch() {
               marginBottom: 8,
               animation: 'fadeIn 0.18s ease',
             }}>
-              <DatePickerPopup
-                selected={date}
-                lang={lang}
+              <DatePickerPopup selected={date} lang={lang}
                 onSelect={(d) => { setDate(d); setShowDatePicker(false); }}
                 onClose={() => setShowDatePicker(false)}
               />
@@ -203,27 +228,17 @@ export default function RecordMatch() {
           )}
         </div>
 
-        {/* ===== GIAO BÓNG (Volleyball icon) ===== */}
+        {/* ===== GIAO BÓNG ===== */}
         <div className="card" style={{ padding: '16px 18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <Volleyball size={16} color="var(--color-primary)" strokeWidth={1.8} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>
-              {t('serve', lang)}
-            </span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>{t('serve', lang)}</span>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <SelectChip
-              active={serve === 'before'}
-              label={t('before', lang)}
-              onClick={() => setServe('before')}
-              style={{ flex: 1 }}
-            />
-            <SelectChip
-              active={serve === 'after'}
-              label={t('after', lang)}
-              onClick={() => setServe('after')}
-              style={{ flex: 1 }}
-            />
+            <SelectChip active={serve === 'before'} label={t('before', lang)}
+              onClick={() => setServe('before')} style={{ flex: 1 }} />
+            <SelectChip active={serve === 'after'} label={t('after', lang)}
+              onClick={() => setServe('after')} style={{ flex: 1 }} />
           </div>
         </div>
 
@@ -231,9 +246,7 @@ export default function RecordMatch() {
         <div className="card" style={{ padding: '16px 18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <Trophy size={16} color="var(--color-primary)" strokeWidth={1.8} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>
-              {t('score', lang)}
-            </span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>{t('score', lang)}</span>
           </div>
           <div className="stepper-score">
             <div className="ss-side">
@@ -248,9 +261,7 @@ export default function RecordMatch() {
                 </button>
               </div>
             </div>
-            <div className="ss-divider">
-              <span>:</span>
-            </div>
+            <div className="ss-divider"><span>:</span></div>
             <div className="ss-side">
               <label>{t('opponent', lang)}</label>
               <div className="ss-row">
@@ -266,30 +277,12 @@ export default function RecordMatch() {
           </div>
 
           <div className="result-dropdown">
-            <div
-              className={`result-btn win ${myScore > opScore ? 'active' : ''}`}
-              onClick={() => {
-                if (myScore <= opScore) {
-                  const diff = opScore - myScore;
-                  setMyScore(opScore);
-                  setOpScore(Math.max(0, opScore - 1));
-                }
-              }}
-            >
-              {t('win', lang)}
-            </div>
-            <div
-              className={`result-btn loss ${opScore > myScore ? 'active' : ''}`}
-              onClick={() => {
-                if (opScore <= myScore) {
-                  const diff = myScore - opScore;
-                  setOpScore(myScore);
-                  setMyScore(Math.max(0, myScore - 1));
-                }
-              }}
-            >
-              {t('loss', lang)}
-            </div>
+            <div className={`result-btn win ${myScore > opScore ? 'active' : ''}`}
+              onClick={() => { if (myScore <= opScore) { setMyScore(opScore); setOpScore(Math.max(0, opScore - 1)); } }}
+            >{t('win', lang)}</div>
+            <div className={`result-btn loss ${opScore > myScore ? 'active' : ''}`}
+              onClick={() => { if (opScore <= myScore) { setOpScore(myScore); setMyScore(Math.max(0, myScore - 1)); } }}
+            >{t('loss', lang)}</div>
           </div>
         </div>
 
@@ -297,13 +290,9 @@ export default function RecordMatch() {
         <div className="card" style={{ padding: '16px 18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <NotebookPen size={16} color="var(--color-primary)" strokeWidth={1.8} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>
-              {t('note', lang)}
-            </span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>{t('note', lang)}</span>
           </div>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
+          <textarea value={note} onChange={(e) => setNote(e.target.value)}
             placeholder={lang === 'vi' ? 'Thêm ghi chú (không bắt buộc)...' : 'Add a note (optional)...'}
             style={{
               width: '100%', border: 'none', background: '#F4F4F6',
@@ -314,31 +303,40 @@ export default function RecordMatch() {
           />
         </div>
 
-        {/* ===== LƯU ===== */}
-        <button className="btn-primary" onClick={handleSave} style={{ marginBottom: 8 }}>
-          {t('saveRecord', lang)}
-        </button>
+        {/* ===== LƯU / CẬP NHẬT ===== */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+          {editingMatch && (
+            <button onClick={() => { setEditingMatch(null); setMyScore(0); setOpScore(0); setOpponent(''); setTeammate(''); setSkillLevel(''); setNote(''); setServe('before'); setDate(todayStr); }}
+              style={{
+                flex: 1, padding: '16px', borderRadius: 18, border: '1px solid #F1F1F4',
+                background: 'transparent', cursor: 'pointer', fontSize: 15, fontWeight: 800,
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              {lang === 'vi' ? 'HỦY' : 'CANCEL'}
+            </button>
+          )}
+          <button className="btn-primary" onClick={handleSave} style={{ flex: editingMatch ? 2 : 1 }}>
+            {editingMatch
+              ? (lang === 'vi' ? 'CẬP NHẬT' : 'UPDATE')
+              : t('saveRecord', lang)}
+          </button>
+        </div>
       </div>
 
-      {/* ===== TEAMMATE PICKER MODAL (check mark on RIGHT) ===== */}
+      {/* ===== TEAMMATE PICKER MODAL ===== */}
       {showTeammatePicker && (
-        <ListPickerModal
-          title={t('teammate', lang)}
-          items={lists.teammates}
-          selected={teammate}
-          lang={lang}
+        <ListPickerModal title={t('teammate', lang)} items={lists.teammates}
+          selected={teammate} lang={lang}
           onSelect={(name) => { setTeammate(name); setShowTeammatePicker(false); }}
           onClose={() => setShowTeammatePicker(false)}
         />
       )}
 
-      {/* ===== OPPONENT PICKER MODAL (check mark on RIGHT) ===== */}
+      {/* ===== OPPONENT PICKER MODAL ===== */}
       {showOpponentPicker && (
-        <ListPickerModal
-          title={t('opponent', lang)}
-          items={lists.opponents}
-          selected={opponent}
-          lang={lang}
+        <ListPickerModal title={t('opponent', lang)} items={lists.opponents}
+          selected={opponent} lang={lang}
           onSelect={(name) => { setOpponent(name); setShowOpponentPicker(false); }}
           onClose={() => setShowOpponentPicker(false)}
         />
@@ -367,7 +365,7 @@ function SelectChip({ active, label, onClick, style }) {
   );
 }
 
-/* ===== LIST PICKER MODAL (flight "Hạng ghế" style - check on RIGHT) ===== */
+/* ===== LIST PICKER MODAL (flight "Hạng ghế" style) ===== */
 function ListPickerModal({ title, items, selected, lang, onSelect, onClose }) {
   return (
     <div onClick={onClose}
@@ -386,7 +384,6 @@ function ListPickerModal({ title, items, selected, lang, onSelect, onClose }) {
           display: 'flex', flexDirection: 'column',
         }}
       >
-        {/* Header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '20px 24px', borderBottom: '1px solid #F1F1F4',
@@ -402,23 +399,18 @@ function ListPickerModal({ title, items, selected, lang, onSelect, onClose }) {
           ><X size={18} /></button>
         </div>
 
-        {/* List with check on RIGHT */}
         <div style={{ overflowY: 'auto', padding: '4px 0', flex: 1 }}>
           {items.length === 0 ? (
             <div style={{
-              textAlign: 'center', padding: 32, color: 'var(--color-text-muted)',
-              fontSize: 14,
+              textAlign: 'center', padding: 32, color: 'var(--color-text-muted)', fontSize: 14,
             }}>
               {lang === 'vi' ? 'Chưa có dữ liệu. Thêm ở trang Tài khoản.' : 'No items yet. Add in Account page.'}
             </div>
           ) : items.map((name) => (
-            <div
-              key={name}
-              onClick={() => onSelect(name)}
+            <div key={name} onClick={() => onSelect(name)}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '16px 24px', cursor: 'pointer',
-                transition: 'background 0.12s',
                 background: name === selected ? 'rgba(230,0,45,0.06)' : 'transparent',
                 borderBottom: '1px solid #F8F8FA',
               }}
@@ -433,8 +425,7 @@ function ListPickerModal({ title, items, selected, lang, onSelect, onClose }) {
                 width: 22, height: 22, borderRadius: '50%',
                 border: name === selected ? '5px solid var(--color-primary)' : '2px solid #D1D5DB',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-                transition: 'all 0.2s',
+                flexShrink: 0, transition: 'all 0.2s',
               }}>
                 {name === selected && <div style={{
                   width: 12, height: 12, borderRadius: '50%',
@@ -455,16 +446,12 @@ function dateToStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/* Flight-booking date format: "T4, 1 thg 7" (vi) or "Wed, Jul 1" (en) */
 function formatFlightDate(dateStr, lang) {
   const d = new Date(dateStr + 'T00:00:00');
   const dayName = getDayName(dateStr, lang);
   const day = d.getDate();
   const month = d.getMonth() + 1;
-
-  if (lang === 'vi') {
-    return `${dayName}, ${day} thg ${month}`;
-  }
+  if (lang === 'vi') return `${dayName}, ${day} thg ${month}`;
   const monthAbbrs = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return `${dayName}, ${monthAbbrs[d.getMonth()]} ${day}`;
 }
@@ -498,11 +485,9 @@ function DatePickerPopup({ selected, lang, onSelect, onClose }) {
   return (
     <div style={{
       background: 'var(--color-card)',
-      borderRadius: 20,
-      padding: '14px 14px 10px',
+      borderRadius: 20, padding: '14px 14px 10px',
       boxShadow: '0 12px 40px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)',
     }}>
-      {/* Month nav */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10,
       }}>
@@ -527,7 +512,6 @@ function DatePickerPopup({ selected, lang, onSelect, onClose }) {
         </button>
       </div>
 
-      {/* Weekday headers */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, marginBottom: 3 }}>
         {weekdays.map((wd, i) => (
           <div key={i} style={{
@@ -538,14 +522,12 @@ function DatePickerPopup({ selected, lang, onSelect, onClose }) {
         ))}
       </div>
 
-      {/* Day grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1 }}>
         {days.map((d, i) => {
           if (d === null) return <div key={`e${i}`} />;
           const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
           const isSelected = dateStr === selected;
           const isToday = dateStr === dateToStr(new Date());
-
           return (
             <button key={i} onClick={() => onSelect(dateStr)}
               style={{
@@ -554,8 +536,7 @@ function DatePickerPopup({ selected, lang, onSelect, onClose }) {
                 borderRadius: 10, fontSize: 12, fontWeight: isSelected ? 700 : (isToday ? 700 : 500),
                 color: isSelected ? 'white' : (isToday ? 'var(--color-primary)' : 'var(--color-text-primary)'),
                 cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'all 0.12s',
-                position: 'relative',
+                transition: 'all 0.12s', position: 'relative',
               }}
             >
               {d}
@@ -570,7 +551,6 @@ function DatePickerPopup({ selected, lang, onSelect, onClose }) {
         })}
       </div>
 
-      {/* Today button */}
       <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
         <button onClick={() => onSelect(dateToStr(new Date()))}
           style={{
@@ -578,9 +558,7 @@ function DatePickerPopup({ selected, lang, onSelect, onClose }) {
             padding: '6px 16px', fontSize: 11, fontWeight: 700,
             cursor: 'pointer', color: 'var(--color-primary)',
           }}
-        >
-          {lang === 'vi' ? '📅 Hôm nay' : '📅 Today'}
-        </button>
+        >{lang === 'vi' ? '📅 Hôm nay' : '📅 Today'}</button>
       </div>
     </div>
   );

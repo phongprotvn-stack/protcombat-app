@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { db, auth, googleProvider } from '../firebase/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, where, getDocs } from 'firebase/firestore';
 import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from 'firebase/auth';
 
 const AppContext = createContext();
@@ -8,6 +8,8 @@ const AppContext = createContext();
 const STORAGE_KEY = 'protcombat_matches';
 const SETTINGS_KEY = 'protcombat_settings';
 const LISTS_KEY = 'protcombat_lists';
+
+const ADMIN_EMAIL = 'phongprotvn@gmail.com';
 
 const defaultSettings = {
   lang: 'vi',
@@ -49,19 +51,25 @@ export function AppProvider({ children }) {
   const [activeTab, setActiveTab] = useState('home');
   const [firebaseReady, setFirebaseReady] = useState(false);
   const [user, setUser] = useState(null);
-
   const [lists, setLists] = useState(() => loadLists(null));
+  const [editingMatch, setEditingMatch] = useState(null);
 
   // Auth state listener
   useEffect(() => {
     let unsub;
     try {
       unsub = onAuthStateChanged(auth, (fbUser) => {
-        if (fbUser) {
-          const u = { uid: fbUser.uid, email: fbUser.email, displayName: fbUser.displayName || fbUser.email?.split('@')[0] || 'User' };
+        if (fbUser && fbUser.email === ADMIN_EMAIL) {
+          const u = { uid: fbUser.uid, email: fbUser.email, displayName: 'PROT' };
           setUser(u);
           setSettings(prev => ({ ...prev, loggedIn: true, displayName: u.displayName }));
           setLists(loadLists(u.uid));
+        } else if (fbUser && fbUser.email !== ADMIN_EMAIL) {
+          // Not admin - sign them out
+          fbSignOut(auth);
+          setUser(null);
+          setSettings(prev => ({ ...prev, loggedIn: false }));
+          setLists(loadLists(null));
         } else {
           setUser(null);
           setSettings(prev => ({ ...prev, loggedIn: false }));
@@ -72,27 +80,56 @@ export function AppProvider({ children }) {
     return () => { if (unsub) unsub(); };
   }, []);
 
-  // Firestore sync
+  // Firestore sync with visibility change support
   useEffect(() => {
-    try {
-      const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        if (!snapshot.metadata.hasPendingWrites) {
+    let unsubscribe;
+    let retryTimer;
+
+    const startSync = () => {
+      if (unsubscribe) return;
+      try {
+        const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
+        unsubscribe = onSnapshot(q, (snapshot) => {
           const fbMatches = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          if (fbMatches.length > 0) setMatches(fbMatches);
-        }
-        setFirebaseReady(true);
-      }, (err) => {
-        console.warn('Firestore sync unavailable:', err.message);
+          // Merge: Firestore data always wins (latest from any device)
+          if (fbMatches.length > 0) {
+            setMatches(fbMatches);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(fbMatches));
+          }
+          setFirebaseReady(true);
+        }, (err) => {
+          console.warn('Firestore sync unavailable:', err.message);
+          setFirebaseReady(false);
+        });
+      } catch (e) {
+        console.warn('Firebase not configured yet');
         setFirebaseReady(false);
-      });
-      return () => unsubscribe();
-    } catch (e) {
-      console.warn('Firebase not configured yet');
-      setFirebaseReady(false);
-    }
+      }
+    };
+
+    const stopSync = () => {
+      if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+    };
+
+    startSync();
+
+    // Re-sync when tab becomes active (for cross-device sync)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        stopSync();
+        retryTimer = setTimeout(startSync, 300);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      stopSync();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
+  // Backup matches to localStorage (always keep a local cache)
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(matches)); }
     catch (e) { console.error('Failed to save matches:', e); }
@@ -139,17 +176,24 @@ export function AppProvider({ children }) {
     setSettings(prev => ({ ...prev, theme: prev.theme === 'light' ? 'dark' : 'light' }));
   }, []);
 
-  // Auth
+  // Auth - PROT admin only
   const signInWithGoogle = useCallback(async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (e) { console.warn('Google sign-in failed:', e.message); }
+      const result = await signInWithPopup(auth, googleProvider);
+      if (result.user.email !== ADMIN_EMAIL) {
+        await fbSignOut(auth);
+        alert('Chỉ PROT mới có quyền đăng nhập. / Only PROT can sign in.');
+      }
+    } catch (e) {
+      if (e.code !== 'auth/popup-closed-by-user') {
+        console.warn('Google sign-in failed:', e.message);
+      }
+    }
   }, []);
 
   const signOutUser = useCallback(async () => {
-    try {
-      await fbSignOut(auth);
-    } catch (e) { console.warn('Sign out failed:', e.message); }
+    try { await fbSignOut(auth); }
+    catch (e) { console.warn('Sign out failed:', e.message); }
   }, []);
 
   // Lists management
@@ -159,37 +203,31 @@ export function AppProvider({ children }) {
   }, [user]);
 
   const addTeammate = useCallback((name) => {
-    if (lists.teammates.includes(name)) return;
-    const newLists = { ...lists, teammates: [...lists.teammates, name] };
-    updateLists(newLists);
+    if (!name || lists.teammates.includes(name)) return;
+    updateLists({ ...lists, teammates: [...lists.teammates, name] });
   }, [lists, updateLists]);
 
   const removeTeammate = useCallback((name) => {
-    const newLists = { ...lists, teammates: lists.teammates.filter(t => t !== name) };
-    updateLists(newLists);
+    updateLists({ ...lists, teammates: lists.teammates.filter(t => t !== name) });
   }, [lists, updateLists]);
 
   const renameTeammate = useCallback((oldName, newName) => {
     if (!newName) return;
-    const newLists = { ...lists, teammates: lists.teammates.map(t => t === oldName ? newName : t) };
-    updateLists(newLists);
+    updateLists({ ...lists, teammates: lists.teammates.map(t => t === oldName ? newName : t) });
   }, [lists, updateLists]);
 
   const addOpponent = useCallback((name) => {
-    if (lists.opponents.includes(name)) return;
-    const newLists = { ...lists, opponents: [...lists.opponents, name] };
-    updateLists(newLists);
+    if (!name || lists.opponents.includes(name)) return;
+    updateLists({ ...lists, opponents: [...lists.opponents, name] });
   }, [lists, updateLists]);
 
   const removeOpponent = useCallback((name) => {
-    const newLists = { ...lists, opponents: lists.opponents.filter(o => o !== name) };
-    updateLists(newLists);
+    updateLists({ ...lists, opponents: lists.opponents.filter(o => o !== name) });
   }, [lists, updateLists]);
 
   const renameOpponent = useCallback((oldName, newName) => {
     if (!newName) return;
-    const newLists = { ...lists, opponents: lists.opponents.map(o => o === oldName ? newName : o) };
-    updateLists(newLists);
+    updateLists({ ...lists, opponents: lists.opponents.map(o => o === oldName ? newName : o) });
   }, [lists, updateLists]);
 
   const stats = {
@@ -217,21 +255,35 @@ export function AppProvider({ children }) {
       : 0,
   };
 
+  // Export helpers
+  const exportCSV = useCallback(() => {
+    if (matches.length === 0) { alert('No matches to export'); return; }
+    const headers = 'date,doubles,serve,myScore,opScore,opponent,teammate,skillLevel,note,result,createdAt';
+    const rows = matches.map(m =>
+      `"${m.date}","${m.doubles}","${m.serve}","${m.myScore}","${m.opScore}","${m.opponent || ''}","${m.teammate || ''}","${m.skillLevel || ''}","${(m.note || '').replace(/"/g,'""')}","${m.result}","${m.createdAt || ''}"`
+    );
+    const csv = `${headers}\n${rows.join('\n')}`;
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'protcombat_export.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }, [matches]);
+
+  const exportPDF = useCallback(() => {
+    if (matches.length === 0) { alert('No matches to export'); return; }
+    window.print();
+  }, [matches]);
+
   const value = {
-    matches,
-    settings,
-    activeTab,
-    stats,
-    firebaseReady,
-    user,
-    lists,
+    matches, settings, activeTab, stats, firebaseReady, user, lists,
+    editingMatch, setEditingMatch,
     addMatch, updateMatch, deleteMatch,
-    setActiveTab,
-    toggleLang, toggleTheme,
-    setSettings,
+    setActiveTab, toggleLang, toggleTheme, setSettings,
     signInWithGoogle, signOutUser,
     addTeammate, removeTeammate, renameTeammate,
     addOpponent, removeOpponent, renameOpponent,
+    exportCSV, exportPDF,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
