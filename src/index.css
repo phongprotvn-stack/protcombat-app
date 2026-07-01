@@ -72,7 +72,65 @@ body {
   box-shadow: var(--shadow-soft-lg);
 }
 
-/* ===== Card ===== */
+/* ===== Stepper Score (iOS-style +/- buttons) ===== */
+.stepper-score {
+  display: flex;
+  align-items: center;
+  background: #F4F4F6;
+  border-radius: var(--r-tab);
+  padding: 12px 8px;
+  gap: 4px;
+}
+.ss-side {
+  flex: 1;
+  text-align: center;
+}
+.ss-side label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+.ss-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0px;
+}
+.ss-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--grad-primary);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(230,0,45,0.2);
+  transition: transform 0.15s;
+}
+.ss-btn:active { transform: scale(0.88); }
+.ss-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  min-width: 48px;
+  text-align: center;
+}
+.ss-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  padding: 0 4px;
+}
+
+/* ===== Toast ===== */
 .card {
   background: var(--color-card);
   border-radius: var(--r-card);

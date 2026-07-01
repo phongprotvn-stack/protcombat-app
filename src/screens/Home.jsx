@@ -6,17 +6,19 @@ import { t, formatDate } from '../i18n';
 const TEAMMATES_LIST = ['PROT', 'Phong', 'Huy', 'Long', 'Minh', 'Anh', 'Tuấn', 'Hùng', 'Dũng'];
 
 export default function Home() {
-  const { matches, stats, settings, setActiveTab } = useApp();
+  const { matches, stats, settings, setActiveTab, toggleLang, lists } = useApp();
   const lang = settings.lang;
   const greetName = settings.displayName || 'Prot';
 
   const [showOpponentSearch, setShowOpponentSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const uniqueOpponents = [...new Set(matches
-    .filter(m => m.opponent && m.opponent !== t('anonymous', lang))
-    .map(m => m.opponent)
-  )];
+  const uniqueOpponents = [...new Set([
+    ...matches
+      .filter(m => m.opponent && m.opponent !== t('anonymous', lang))
+      .map(m => m.opponent),
+    ...(lists?.opponents || [])
+  ])];
 
   const filteredOpponents = searchQuery
     ? uniqueOpponents.filter(o => o.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -53,7 +55,7 @@ export default function Home() {
             </span>
           </div>
           <button
-            onClick={() => {/* lang toggle */}}
+            onClick={toggleLang}
             style={{
               padding: '6px 14px',
               borderRadius: 999,
@@ -100,8 +102,9 @@ export default function Home() {
         display: 'flex',
         flexDirection: 'column',
         gap: 'var(--space-card-gap)',
-        marginTop: -12,
+        marginTop: 0,
       }}>
+        <div style={{ height: 10 }} />
 
         {/* ===== FIND OPPONENT CARD ===== */}
         <div

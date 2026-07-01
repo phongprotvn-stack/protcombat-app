@@ -1,37 +1,34 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Calendar, User, Users, Trophy, NotebookPen,
-  ChevronLeft, ChevronRight, ArrowLeftRight,
+  ChevronLeft, ChevronRight, Plus, Minus, Check, X,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { t, getDayName, getMonthName } from '../i18n';
 
-const TEAMMATES = ['PROT', 'Phong', 'Huy', 'Long', 'Minh', 'Anh', 'Tuấn', 'Hùng', 'Dũng'];
-
 const SKILL_LEVELS = ['level6m', 'level6m1y', 'level1y'];
 
 export default function RecordMatch() {
-  const { addMatch, settings } = useApp();
+  const { addMatch, settings, lists } = useApp();
   const lang = settings.lang;
 
   const today = new Date();
   const todayStr = dateToStr(today);
 
   const [doubles, setDoubles] = useState(false);
-  const [opponentType, setOpponentType] = useState('maleMale');
   const [date, setDate] = useState(todayStr);
   const [serve, setServe] = useState('before');
   const [myScore, setMyScore] = useState(0);
   const [opScore, setOpScore] = useState(0);
   const [opponent, setOpponent] = useState('');
+  const [opponentInput, setOpponentInput] = useState('');
   const [teammate, setTeammate] = useState('');
   const [skillLevel, setSkillLevel] = useState('');
   const [note, setNote] = useState('');
   const [toast, setToast] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTeammatePicker, setShowTeammatePicker] = useState(false);
-
-  const dateInputRef = useRef(null);
+  const [showOpponentPicker, setShowOpponentPicker] = useState(false);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -44,19 +41,27 @@ export default function RecordMatch() {
       return;
     }
     const result = myScore > opScore ? 'win' : 'loss';
+    const finalOpponent = opponentInput.trim() || opponent || t('anonymous', lang);
     addMatch({
-      date, doubles, opponentType, serve, myScore, opScore,
-      opponent: opponent.trim() || t('anonymous', lang),
+      date, doubles, serve, myScore, opScore,
+      opponent: finalOpponent,
       teammate: teammate || '',
       skillLevel: skillLevel || '',
       note, result,
     });
     showToast(t('saveSuccess', lang));
-    setMyScore(0); setOpScore(0); setOpponent('');
-    setTeammate(''); setSkillLevel(''); setNote('');
-    setServe('before');
-    setDate(todayStr);
+    setMyScore(0); setOpScore(0); setOpponentInput('');
+    setOpponent(''); setTeammate(''); setSkillLevel('');
+    setNote(''); setServe('before'); setDate(todayStr);
   };
+
+  // Opponents from both account lists and match history
+  const existingOpponents = useMemo(() => {
+    const { matches } = settings;
+    // We can't access matches directly here since we only have settings
+    // But the user can type any opponent name
+    return lists.opponents;
+  }, [lists.opponents]);
 
   return (
     <div className="screen screen-enter" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}>
@@ -67,65 +72,96 @@ export default function RecordMatch() {
         {/* ===== MODE SELECTOR ===== */}
         <div className="card">
           <div className="segmented">
-            <button className={!doubles ? 'active' : ''} onClick={() => setDoubles(false)}>
+            <button className={!doubles ? 'active' : ''} onClick={() => { setDoubles(false); setTeammate(''); }}>
               {t('singles', lang)}
             </button>
             <button className={doubles ? 'active' : ''} onClick={() => setDoubles(true)}>
               {t('doubles', lang)}
             </button>
           </div>
-          {doubles && (
-            <div className="segmented" style={{ marginTop: 10 }}>
-              <button className={opponentType === 'maleMale' ? 'active' : ''} onClick={() => setOpponentType('maleMale')}>
-                {t('maleMale', lang)}
-              </button>
-              <button className={opponentType === 'femaleFemale' ? 'active' : ''} onClick={() => setOpponentType('femaleFemale')}>
-                {t('femaleFemale', lang)}
-              </button>
-              <button className={opponentType === 'maleFemale' ? 'active' : ''} onClick={() => setOpponentType('maleFemale')}>
-                {t('maleFemale', lang)}
-              </button>
-            </div>
-          )}
         </div>
 
-        {/* ===== ĐỒNG ĐỘI ===== */}
-        <div className="card">
-          <p className="caption" style={{ marginBottom: 10 }}>
-            <Users size={13} style={{ verticalAlign: -2, marginRight: 6 }} />
-            {t('teammate', lang)}
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {TEAMMATES.map(name => (
-              <Chip
-                key={name}
-                active={teammate === name}
-                label={name}
-                onClick={() => setTeammate(teammate === name ? '' : name)}
-              />
-            ))}
+        {/* ===== ĐỒNG ĐỘI (only when doubles) ===== */}
+        {doubles && (
+          <div className="card">
+            <p className="caption" style={{ marginBottom: 10 }}>
+              <Users size={13} color="var(--color-primary)" style={{ verticalAlign: -2, marginRight: 6 }} />
+              {t('teammate', lang)}
+            </p>
+            <div
+              onClick={() => setShowTeammatePicker(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: '#F4F4F6', borderRadius: 16,
+                padding: '14px 16px', cursor: 'pointer',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span style={{ fontSize: 14, fontWeight: teammate ? 700 : 500, color: teammate ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
+                {teammate || (lang === 'vi' ? 'Chọn đồng đội...' : 'Select teammate...')}
+              </span>
+              {teammate && (
+                <X size={16} color="var(--color-text-muted)" onClick={(e) => { e.stopPropagation(); setTeammate(''); }}
+                  style={{ cursor: 'pointer' }} />
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ===== ĐỐI THỦ ===== */}
         <div className="card">
           <p className="caption" style={{ marginBottom: 10 }}>
-            <User size={13} style={{ verticalAlign: -2, marginRight: 6 }} />
+            <User size={13} color="var(--color-primary)" style={{ verticalAlign: -2, marginRight: 6 }} />
             {t('opponent', lang)}
           </p>
-          <input
-            type="text"
-            value={opponent}
-            onChange={(e) => setOpponent(e.target.value)}
-            placeholder={t('anonymous', lang)}
-            className="input-pill"
-          />
+          <div
+            style={{
+              display: 'flex', gap: 8, alignItems: 'center',
+            }}
+          >
+            <input
+              type="text"
+              value={opponentInput}
+              onChange={(e) => setOpponentInput(e.target.value)}
+              placeholder={lang === 'vi' ? 'Nhập tên đối thủ...' : 'Enter opponent name...'}
+              className="input-pill"
+              style={{ flex: 1 }}
+            />
+            <button
+              onClick={() => setShowOpponentPicker(true)}
+              style={{
+                padding: '10px 16px', borderRadius: 999,
+                border: 'none', background: '#F4F4F6',
+                cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                color: 'var(--color-text-secondary)',
+                display: 'flex', alignItems: 'center', gap: 4,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {lang === 'vi' ? 'Danh sách' : 'List'}
+            </button>
+          </div>
+          {lists.opponents.length > 0 && opponentInput === '' && !opponent && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+              {lists.opponents.slice(0, 5).map(name => (
+                <div key={name}
+                  onClick={() => setOpponentInput(name)}
+                  style={{
+                    padding: '6px 14px', borderRadius: 999,
+                    background: '#F4F4F6', fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', color: 'var(--color-text-secondary)',
+                    transition: 'all 0.15s',
+                  }}
+                >{name}</div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ===== TRÌNH ĐỘ ===== */}
         <div className="card">
           <p className="caption" style={{ marginBottom: 10 }}>
-            <Trophy size={13} style={{ verticalAlign: -2, marginRight: 6 }} />
+            <Trophy size={13} color="var(--color-primary)" style={{ verticalAlign: -2, marginRight: 6 }} />
             {t('skillLevel', lang)}
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -141,13 +177,13 @@ export default function RecordMatch() {
         </div>
 
         {/* ===== NGÀY ===== */}
-        <div className="card">
+        <div className="card" style={{ position: 'relative' }}>
           <p className="caption" style={{ marginBottom: 10 }}>
-            <Calendar size={13} style={{ verticalAlign: -2, marginRight: 6 }} />
+            <Calendar size={13} color="var(--color-primary)" style={{ verticalAlign: -2, marginRight: 6 }} />
             {t('date', lang)}
           </p>
           <div
-            onClick={() => setShowDatePicker(true)}
+            onClick={() => setShowDatePicker(!showDatePicker)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -167,17 +203,27 @@ export default function RecordMatch() {
                 {getDayName(date, lang)}, {dateDisplay(date, lang)}
               </span>
             </div>
-            <Calendar size={20} color="var(--color-text-muted)" />
+            <Calendar size={20} color="var(--color-primary)" />
           </div>
 
-          {/* iOS-style Calendar Modal */}
+          {/* Calendar popover ABOVE the date field */}
           {showDatePicker && (
-            <DatePickerModal
-              selected={date}
-              lang={lang}
-              onSelect={(d) => { setDate(d); setShowDatePicker(false); }}
-              onClose={() => setShowDatePicker(false)}
-            />
+            <div style={{
+              position: 'absolute',
+              bottom: '100%',
+              left: 0,
+              right: 0,
+              zIndex: 300,
+              marginBottom: 8,
+              animation: 'fadeIn 0.2s ease',
+            }}>
+              <DatePickerPopup
+                selected={date}
+                lang={lang}
+                onSelect={(d) => { setDate(d); setShowDatePicker(false); }}
+                onClose={() => setShowDatePicker(false)}
+              />
+            </div>
           )}
         </div>
 
@@ -194,15 +240,6 @@ export default function RecordMatch() {
               onClick={() => setServe('before')}
               style={{ flex: 1 }}
             />
-            <button
-              onClick={() => {
-                setServe(prev => prev === 'before' ? 'after' : 'before');
-                showToast('🔄 ' + (lang === 'vi' ? 'Đã đảo giao bóng!' : 'Serve swapped!'));
-              }}
-              className="swap-btn"
-            >
-              <ArrowLeftRight size={14} />
-            </button>
             <SelectChip
               active={serve === 'after'}
               label={t('after', lang)}
@@ -212,43 +249,38 @@ export default function RecordMatch() {
           </div>
         </div>
 
-        {/* ===== TỶ SỐ ===== */}
+        {/* ===== TỶ SỐ (stepper) ===== */}
         <div className="card">
           <p className="caption" style={{ marginBottom: 10 }}>
-            <Trophy size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
+            <Trophy size={13} color="var(--color-primary)" style={{ verticalAlign: -2, marginRight: 4 }} />
             {t('score', lang)}
           </p>
-          <div className="merged-input">
-            <div className="field">
+          <div className="stepper-score">
+            <div className="ss-side">
               <label>{t('me', lang)}</label>
-              <div
-                className="value"
-                onClick={() => {
-                  const v = prompt(lang === 'vi' ? 'Điểm của tôi:' : 'My score:', myScore);
-                  if (v !== null) setMyScore(Math.max(0, parseInt(v) || 0));
-                }}
-              >
-                {myScore}
+              <div className="ss-row">
+                <button className="ss-btn" onClick={() => setMyScore(Math.max(0, myScore - 1))}>
+                  <Minus size={16} color="white" />
+                </button>
+                <div className="ss-value">{myScore}</div>
+                <button className="ss-btn" onClick={() => setMyScore(Math.min(99, myScore + 1))}>
+                  <Plus size={16} color="white" />
+                </button>
               </div>
             </div>
-            <div className="divider" />
-            <button
-              className="swap-btn"
-              onClick={() => { setMyScore(opScore); setOpScore(myScore); }}
-            >
-              <ArrowLeftRight size={14} />
-            </button>
-            <div className="divider" />
-            <div className="field">
+            <div className="ss-divider">
+              <span>:</span>
+            </div>
+            <div className="ss-side">
               <label>{t('opponent', lang)}</label>
-              <div
-                className="value"
-                onClick={() => {
-                  const v = prompt(lang === 'vi' ? 'Điểm đối thủ:' : 'Opponent score:', opScore);
-                  if (v !== null) setOpScore(Math.max(0, parseInt(v) || 0));
-                }}
-              >
-                {opScore}
+              <div className="ss-row">
+                <button className="ss-btn" onClick={() => setOpScore(Math.max(0, opScore - 1))}>
+                  <Minus size={16} color="white" />
+                </button>
+                <div className="ss-value">{opScore}</div>
+                <button className="ss-btn" onClick={() => setOpScore(Math.min(99, opScore + 1))}>
+                  <Plus size={16} color="white" />
+                </button>
               </div>
             </div>
           </div>
@@ -258,8 +290,9 @@ export default function RecordMatch() {
               className={`result-btn win ${myScore > opScore ? 'active' : ''}`}
               onClick={() => {
                 if (myScore <= opScore) {
-                  if (myScore === opScore) setOpScore(myScore - 2);
-                  else { const tmp = myScore; setMyScore(myScore + 2); setOpScore(tmp); }
+                  const diff = opScore - myScore;
+                  setMyScore(opScore);
+                  setOpScore(Math.max(0, opScore - 1));
                 }
               }}
             >
@@ -269,8 +302,9 @@ export default function RecordMatch() {
               className={`result-btn loss ${opScore > myScore ? 'active' : ''}`}
               onClick={() => {
                 if (opScore <= myScore) {
-                  if (myScore === opScore) setMyScore(opScore - 2);
-                  else { const tmp = opScore; setOpScore(opScore + 2); setMyScore(tmp); }
+                  const diff = myScore - opScore;
+                  setOpScore(myScore);
+                  setMyScore(Math.max(0, myScore - 1));
                 }
               }}
             >
@@ -282,7 +316,7 @@ export default function RecordMatch() {
         {/* ===== GHI CHÚ ===== */}
         <div className="card">
           <p className="caption" style={{ marginBottom: 8 }}>
-            <NotebookPen size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
+            <NotebookPen size={13} color="var(--color-primary)" style={{ verticalAlign: -2, marginRight: 4 }} />
             {t('note', lang)}
           </p>
           <textarea
@@ -304,55 +338,129 @@ export default function RecordMatch() {
         </button>
       </div>
 
+      {/* ===== TEAMMATE PICKER MODAL ===== */}
+      {showTeammatePicker && (
+        <ListPickerModal
+          title={t('teammate', lang)}
+          items={lists.teammates}
+          selected={teammate}
+          lang={lang}
+          onSelect={(name) => { setTeammate(name); setShowTeammatePicker(false); }}
+          onClose={() => setShowTeammatePicker(false)}
+        />
+      )}
+
+      {/* ===== OPPONENT PICKER MODAL ===== */}
+      {showOpponentPicker && (
+        <ListPickerModal
+          title={t('opponent', lang)}
+          items={lists.opponents}
+          selected={opponentInput || opponent}
+          lang={lang}
+          onSelect={(name) => { setOpponentInput(name); setShowOpponentPicker(false); }}
+          onClose={() => setShowOpponentPicker(false)}
+        />
+      )}
+
       {toast && <div className="toast show">{toast}</div>}
     </div>
   );
 }
 
-/* ===== CHIP COMPONENTS ===== */
-
-function Chip({ active, label, onClick }) {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        padding: '10px 18px',
-        borderRadius: 999,
-        background: active ? 'rgba(230,0,45,0.08)' : '#F4F4F6',
-        cursor: 'pointer',
-        fontSize: 13,
-        fontWeight: active ? 700 : 500,
-        color: active ? 'var(--color-primary)' : 'var(--color-text-primary)',
-        userSelect: 'none',
-        transition: 'all 0.2s',
-      }}
-    >
-      {label}
-    </div>
-  );
-}
+/* ===== COMPONENTS ===== */
 
 function SelectChip({ active, label, onClick, style }) {
   return (
-    <div
-      onClick={onClick}
+    <div onClick={onClick}
       style={{
-        flex: 1,
-        textAlign: 'center',
-        padding: '12px 8px',
-        borderRadius: 18,
+        flex: 1, textAlign: 'center', padding: '12px 8px', borderRadius: 18,
         background: active ? 'var(--grad-primary)' : '#F4F4F6',
-        cursor: 'pointer',
-        fontSize: 13,
-        fontWeight: 700,
+        cursor: 'pointer', fontSize: 13, fontWeight: 700,
         color: active ? 'white' : 'var(--color-text-primary)',
-        userSelect: 'none',
-        transition: 'all 0.2s ease',
+        userSelect: 'none', transition: 'all 0.2s ease',
         boxShadow: active ? '0 6px 16px rgba(230,0,45,0.25)' : 'none',
         ...(style || {}),
       }}
+    >{label}</div>
+  );
+}
+
+/* ===== LIST PICKER MODAL (flight seat style) ===== */
+function ListPickerModal({ title, items, selected, lang, onSelect, onClose }) {
+  return (
+    <div onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 300,
+        background: 'rgba(0,0,0,0.4)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        animation: 'fadeIn 0.2s ease',
+      }}
     >
-      {label}
+      <div onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--color-card)', borderRadius: '28px 28px 0 0',
+          width: '100%', maxWidth: 420, maxHeight: '70vh', overflow: 'hidden',
+          animation: 'slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '20px 24px', borderBottom: '1px solid #F1F1F4',
+        }}>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>{title}</div>
+          <button onClick={onClose}
+            style={{
+              border: 'none', background: '#F4F4F6', borderRadius: 12,
+              width: 32, height: 32, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--color-text-muted)',
+            }}
+          ><X size={18} /></button>
+        </div>
+
+        {/* List */}
+        <div style={{ overflowY: 'auto', padding: '8px 0', flex: 1 }}>
+          {items.length === 0 ? (
+            <div style={{
+              textAlign: 'center', padding: 32, color: 'var(--color-text-muted)',
+              fontSize: 14,
+            }}>
+              {lang === 'vi' ? 'Chưa có dữ liệu. Thêm ở trang Tài khoản.' : 'No items yet. Add in Account page.'}
+            </div>
+          ) : items.map((name) => (
+            <div
+              key={name}
+              onClick={() => onSelect(name)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '14px 24px', cursor: 'pointer',
+                transition: 'background 0.15s',
+                background: name === selected ? 'rgba(230,0,45,0.04)' : 'transparent',
+              }}
+            >
+              {/* Check circle */}
+              <div style={{
+                width: 24, height: 24, borderRadius: '50%',
+                border: name === selected ? '6px solid var(--color-primary)' : '2px solid #D1D5DB',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+                transition: 'all 0.2s',
+              }}>
+                {name === selected && <div style={{
+                  width: 10, height: 10, borderRadius: '50%',
+                  background: 'var(--color-primary)',
+                }} />}
+              </div>
+              <span style={{
+                fontSize: 15, fontWeight: name === selected ? 700 : 500,
+                color: 'var(--color-text-primary)',
+              }}>{name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -380,15 +488,15 @@ function dateDisplay(dateStr, lang) {
   return `${day} ${month}`;
 }
 
-/* ===== iOS STYLE CALENDAR MODAL ===== */
+/* ===== iOS STYLE CALENDAR POPOVER (ABOVE) ===== */
 
-function DatePickerModal({ selected, lang, onSelect, onClose }) {
+function DatePickerPopup({ selected, lang, onSelect, onClose }) {
   const initialDate = new Date(selected + 'T00:00:00');
   const [viewYear, setViewYear] = useState(initialDate.getFullYear());
   const [viewMonth, setViewMonth] = useState(initialDate.getMonth());
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const firstDay = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
   const weekdays = lang === 'vi'
     ? ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
     : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -407,150 +515,92 @@ function DatePickerModal({ selected, lang, onSelect, onClose }) {
   for (let d = 1; d <= daysInMonth; d++) days.push(d);
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.35)',
-        zIndex: 200,
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-        animation: 'fadeIn 0.2s ease',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--color-card)',
-          borderRadius: '28px 28px 0 0',
-          width: '100%',
-          maxWidth: 420,
-          padding: '20px var(--space-page-x)',
-          paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 20px)`,
-          animation: 'slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        }}
-      >
-        {/* Header */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 20,
+    <div style={{
+      background: 'var(--color-card)',
+      borderRadius: 20,
+      padding: '16px 16px 12px',
+      boxShadow: '0 12px 40px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)',
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12,
+      }}>
+        <button onClick={prevMonth} style={{
+          border: 'none', background: '#F4F4F6', borderRadius: 10,
+          width: 32, height: 32, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', cursor: 'pointer',
+          color: 'var(--color-text-primary)',
         }}>
-          <button onClick={prevMonth} style={{
-            border: 'none', background: '#F4F4F6', borderRadius: 12,
-            width: 36, height: 36, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', cursor: 'pointer',
-            color: 'var(--color-text-primary)',
-          }}>
-            <ChevronLeft size={18} strokeWidth={2.5} />
-          </button>
-          <div style={{ fontSize: 17, fontWeight: 700 }}>
-            {getMonthName(viewMonth, lang)} {viewYear}
-          </div>
-          <button onClick={nextMonth} style={{
-            border: 'none', background: '#F4F4F6', borderRadius: 12,
-            width: 36, height: 36, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', cursor: 'pointer',
-            color: 'var(--color-text-primary)',
-          }}>
-            <ChevronRight size={18} strokeWidth={2.5} />
-          </button>
+          <ChevronLeft size={16} strokeWidth={2.5} />
+        </button>
+        <div style={{ fontSize: 15, fontWeight: 700 }}>
+          {getMonthName(viewMonth, lang)} {viewYear}
         </div>
-
-        {/* Weekday headers */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          gap: 2,
-          marginBottom: 8,
+        <button onClick={nextMonth} style={{
+          border: 'none', background: '#F4F4F6', borderRadius: 10,
+          width: 32, height: 32, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', cursor: 'pointer',
+          color: 'var(--color-text-primary)',
         }}>
-          {weekdays.map((wd, i) => (
-            <div key={i} style={{
-              textAlign: 'center',
-              fontSize: 12,
-              fontWeight: 700,
-              color: i === 0 || i === 6 ? '#E6002D' : 'var(--color-text-muted)',
-              padding: '6px 0',
-            }}>
-              {wd}
-            </div>
-          ))}
-        </div>
+          <ChevronRight size={16} strokeWidth={2.5} />
+        </button>
+      </div>
 
-        {/* Day grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          gap: 2,
-        }}>
-          {days.map((d, i) => {
-            if (d === null) return <div key={`e${i}`} />;
-            const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            const isSelected = dateStr === selected;
-            const isToday = dateStr === dateToStr(new Date());
+      {/* Weekday headers */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, marginBottom: 4 }}>
+        {weekdays.map((wd, i) => (
+          <div key={i} style={{
+            textAlign: 'center', fontSize: 10, fontWeight: 700,
+            color: i === 0 || i === 6 ? '#E6002D' : 'var(--color-text-muted)',
+            padding: '4px 0',
+          }}>{wd}</div>
+        ))}
+      </div>
 
-            return (
-              <button
-                key={i}
-                onClick={() => onSelect(dateStr)}
-                style={{
-                  aspectRatio: '1',
-                  border: 'none',
-                  background: isSelected ? 'var(--grad-primary)' : 'transparent',
-                  borderRadius: 14,
-                  fontSize: 14,
-                  fontWeight: isSelected ? 700 : (isToday ? 700 : 500),
-                  color: isSelected ? 'white' : (isToday ? 'var(--color-primary)' : 'var(--color-text-primary)'),
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.15s',
-                  boxShadow: isSelected ? '0 4px 12px rgba(230,0,45,0.3)' : 'none',
-                  position: 'relative',
-                }}
-              >
-                {d}
-                {isToday && !isSelected && (
-                  <div style={{
-                    position: 'absolute',
-                    bottom: 4,
-                    width: 4, height: 4,
-                    borderRadius: '50%',
-                    background: 'var(--color-primary)',
-                  }} />
-                )}
-              </button>
-            );
-          })}
-        </div>
+      {/* Day grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1 }}>
+        {days.map((d, i) => {
+          if (d === null) return <div key={`e${i}`} />;
+          const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          const isSelected = dateStr === selected;
+          const isToday = dateStr === dateToStr(new Date());
 
-        {/* Action buttons */}
-        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-          <button
-            onClick={() => {
-              const d = new Date();
-              onSelect(dateToStr(d));
-            }}
-            className="btn-secondary"
-            style={{ flex: 1, borderRadius: 18 }}
-          >
-            {lang === 'vi' ? 'Hôm nay' : 'Today'}
-          </button>
-          <button
-            onClick={onClose}
-            className="btn-primary"
-            style={{
-              flex: 1, borderRadius: 18, padding: '12px 18px',
-              boxShadow: '0 6px 16px rgba(230,0,45,0.25)',
-            }}
-          >
-            {lang === 'vi' ? 'Xong' : 'Done'}
-          </button>
-        </div>
+          return (
+            <button key={i} onClick={() => onSelect(dateStr)}
+              style={{
+                aspectRatio: '1', border: 'none',
+                background: isSelected ? 'var(--grad-primary)' : 'transparent',
+                borderRadius: 12, fontSize: 12, fontWeight: isSelected ? 700 : (isToday ? 700 : 500),
+                color: isSelected ? 'white' : (isToday ? 'var(--color-primary)' : 'var(--color-text-primary)'),
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.15s',
+                boxShadow: isSelected ? '0 3px 10px rgba(230,0,45,0.3)' : 'none',
+                position: 'relative',
+              }}
+            >
+              {d}
+              {isToday && !isSelected && (
+                <div style={{
+                  position: 'absolute', bottom: 3, width: 3, height: 3,
+                  borderRadius: '50%', background: 'var(--color-primary)',
+                }} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Today button */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+        <button onClick={() => onSelect(dateToStr(new Date()))}
+          style={{
+            border: 'none', background: '#F4F4F6', borderRadius: 14,
+            padding: '8px 18px', fontSize: 12, fontWeight: 700,
+            cursor: 'pointer', color: 'var(--color-text-primary)',
+          }}
+        >
+          {lang === 'vi' ? '📅 Hôm nay' : '📅 Today'}
+        </button>
       </div>
     </div>
   );

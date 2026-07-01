@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import { Home as HomeIcon, PlusCircle, BarChart3, Lightbulb, User } from 'lucide-react';
 import { useApp } from './contexts/AppContext';
 import { t } from './i18n';
@@ -19,17 +19,6 @@ const navItems = [
 export default function App() {
   const { activeTab, setActiveTab, settings } = useApp();
   const lang = settings.lang;
-  const appRef = useRef(null);
-
-  useEffect(() => {
-    const el = appRef.current;
-    if (!el) return;
-    const prevent = (e) => {
-      if (e.cancelable) e.preventDefault();
-    };
-    el.addEventListener('touchmove', prevent, { passive: false });
-    return () => el.removeEventListener('touchmove', prevent);
-  }, []);
 
   const renderScreen = () => {
     switch (activeTab) {
@@ -44,17 +33,15 @@ export default function App() {
 
   return (
     <div
-      ref={appRef}
       style={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         background: '#F8F8FA',
         position: 'relative',
-        overflow: 'hidden',
       }}
     >
-      <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <main style={{ flex: 1, overflow: 'hidden auto', position: 'relative' }}>
         {renderScreen()}
       </main>
 
