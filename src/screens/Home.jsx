@@ -56,7 +56,7 @@ export default function Home() {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 18 }}>⚔️</span>
+            <img src="/logo.png" alt="PROT COMBAT" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
             <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.2, color: 'white', opacity: 0.95 }}>
               {t('appName', lang)}
             </span>

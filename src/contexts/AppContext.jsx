@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { db, auth, googleProvider } from '../firebase/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from 'firebase/auth';
 
 const AppContext = createContext();
@@ -10,6 +10,9 @@ const SETTINGS_KEY = 'protcombat_settings';
 const LISTS_KEY = 'protcombat_lists';
 
 const ADMIN_EMAIL = 'phongprotvn@gmail.com';
+
+const DEFAULT_TEAMMATES = ['PROT', 'Phong', 'Huy', 'Long', 'Minh', 'Anh', 'Tuấn', 'Hùng', 'Dũng'];
+const DEFAULT_OPPONENTS = [];
 
 const defaultSettings = {
   lang: 'vi',
@@ -21,11 +24,13 @@ const defaultSettings = {
 function loadLists(userId) {
   try {
     const all = JSON.parse(localStorage.getItem(LISTS_KEY) || '{}');
-    return all[userId || 'guest'] || { teammates: ['PROT', 'Phong', 'Huy', 'Long', 'Minh', 'Anh', 'Tuấn', 'Hùng', 'Dũng'], opponents: [] };
-  } catch { return { teammates: [], opponents: [] }; }
+    const saved = all[userId || 'guest'];
+    if (saved && saved.teammates && saved.opponents) return saved;
+    return { teammates: DEFAULT_TEAMMATES, opponents: DEFAULT_OPPONENTS };
+  } catch { return { teammates: DEFAULT_TEAMMATES, opponents: DEFAULT_OPPONENTS }; }
 }
 
-function saveLists(userId, lists) {
+function persistLists(userId, lists) {
   try {
     const all = JSON.parse(localStorage.getItem(LISTS_KEY) || '{}');
     all[userId || 'guest'] = lists;
@@ -79,12 +84,7 @@ export function AppProvider({ children }) {
     return () => { if (unsub) unsub(); };
   }, []);
 
-  // ─── Firestore real-time sync ─────────────────────────────────
-  // SINGLE source of truth: onSnapshot updates matches from Firestore.
-  // addMatch/updateMatch/deleteMatch do NOT manually update local state
-  // on success — the onSnapshot callback handles it, which:
-  //   1) Prevents duplicate records (critical fix for "tạo 2 bản ghi")
-  //   2) Ensures cross-device sync works seamlessly
+  // ─── MATCHES: Firestore real-time sync ──────────────────────
   useEffect(() => {
     let unsubscribe;
     let retryTimer;
@@ -95,7 +95,6 @@ export function AppProvider({ children }) {
         const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
         unsubscribe = onSnapshot(q, (snapshot) => {
           const fbMatches = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          // Always update — even when empty (handles "delete all" case)
           setMatches(fbMatches);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(fbMatches));
           setFirebaseReady(true);
@@ -116,7 +115,6 @@ export function AppProvider({ children }) {
 
     startSync();
 
-    // Re-sync when tab becomes active (cross-device: Mobile ↔ PC)
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         stopSync();
@@ -130,6 +128,56 @@ export function AppProvider({ children }) {
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
+
+  // ─── LISTS: Firestore real-time sync ────────────────────────
+  // Teammates/opponents stored in Firestore doc: lists/{userId}
+  // This ensures changes sync across all devices automatically.
+  useEffect(() => {
+    let unsubList;
+    const uid = user?.uid || 'guest';
+    let stopped = false;
+
+    const syncLists = async () => {
+      // Load from localStorage immediately
+      setLists(loadLists(uid));
+
+      try {
+        const listRef = doc(db, 'lists', uid);
+        // If first time, seed Firestore doc from localStorage
+        const snap = await getDoc(listRef);
+        if (!snap.exists()) {
+          const local = loadLists(uid);
+          await setDoc(listRef, local);
+        }
+
+        // Subscribe to real-time updates
+        unsubList = onSnapshot(listRef, (snap) => {
+          if (stopped) return;
+          if (snap.exists()) {
+            const fbLists = snap.data();
+            const safe = {
+              teammates: Array.isArray(fbLists.teammates) ? fbLists.teammates : DEFAULT_TEAMMATES,
+              opponents: Array.isArray(fbLists.opponents) ? fbLists.opponents : DEFAULT_OPPONENTS,
+            };
+            setLists(safe);
+            persistLists(uid, safe);
+          }
+        }, (err) => {
+          console.warn('Lists sync unavailable:', err.message);
+          // localStorage fallback already loaded above
+        });
+      } catch (e) {
+        console.warn('Lists sync setup failed:', e.message);
+      }
+    };
+
+    syncLists();
+
+    return () => {
+      stopped = true;
+      if (unsubList) unsubList();
+    };
+  }, [user?.uid]);
 
   // Backup matches to localStorage
   useEffect(() => {
@@ -146,9 +194,7 @@ export function AppProvider({ children }) {
     document.documentElement.classList.toggle('dark', settings.theme === 'dark');
   }, [settings.theme]);
 
-  // ─── CRUD: do NOT manually setMatches on success ─────────────
-  // onSnapshot fires automatically after Firestore writes.
-  // Manual updates cause duplicates ("tạo 2 bản ghi giống hệt nhau").
+  // ─── CRUD: only call Firestore — onSnapshot handles UI updates ──
   const addMatch = useCallback(async (match) => {
     const matchData = {
       ...match,
@@ -160,7 +206,6 @@ export function AppProvider({ children }) {
       return { id: docRef.id, ...matchData };
     } catch (e) {
       console.warn('Firestore add failed:', e.message);
-      // Fallback: only add locally if Firestore unavailable
       const fallback = { id: 'local_' + Date.now(), ...matchData };
       setMatches(prev => [fallback, ...prev]);
     }
@@ -169,13 +214,11 @@ export function AppProvider({ children }) {
   const updateMatch = useCallback(async (id, updates) => {
     try { await updateDoc(doc(db, 'matches', id), updates); }
     catch (e) { console.warn('Firestore update failed:', e.message); }
-    // No local setMatches — onSnapshot handles it
   }, []);
 
   const deleteMatch = useCallback(async (id) => {
     try { await deleteDoc(doc(db, 'matches', id)); }
     catch (e) { console.warn('Firestore delete failed:', e.message); }
-    // No local setMatches — onSnapshot handles it
   }, []);
 
   const toggleLang = useCallback(() => {
@@ -206,39 +249,45 @@ export function AppProvider({ children }) {
     catch (e) { console.warn('Sign out failed:', e.message); }
   }, []);
 
-  // Lists management
-  const updateLists = useCallback((newLists) => {
+  // ─── Lists CRUD (Firestore-backed for cross-device sync) ──────
+  const pushLists = useCallback(async (newLists) => {
     setLists(newLists);
-    saveLists(user?.uid || 'guest', newLists);
+    const uid = user?.uid || 'guest';
+    persistLists(uid, newLists);
+    try {
+      await setDoc(doc(db, 'lists', uid), newLists);
+    } catch (e) {
+      console.warn('Firestore lists write failed:', e.message);
+    }
   }, [user]);
 
   const addTeammate = useCallback((name) => {
     if (!name || lists.teammates.includes(name)) return;
-    updateLists({ ...lists, teammates: [...lists.teammates, name] });
-  }, [lists, updateLists]);
+    pushLists({ ...lists, teammates: [...lists.teammates, name] });
+  }, [lists, pushLists]);
 
   const removeTeammate = useCallback((name) => {
-    updateLists({ ...lists, teammates: lists.teammates.filter(t => t !== name) });
-  }, [lists, updateLists]);
+    pushLists({ ...lists, teammates: lists.teammates.filter(t => t !== name) });
+  }, [lists, pushLists]);
 
   const renameTeammate = useCallback((oldName, newName) => {
     if (!newName) return;
-    updateLists({ ...lists, teammates: lists.teammates.map(t => t === oldName ? newName : t) });
-  }, [lists, updateLists]);
+    pushLists({ ...lists, teammates: lists.teammates.map(t => t === oldName ? newName : t) });
+  }, [lists, pushLists]);
 
   const addOpponent = useCallback((name) => {
     if (!name || lists.opponents.includes(name)) return;
-    updateLists({ ...lists, opponents: [...lists.opponents, name] });
-  }, [lists, updateLists]);
+    pushLists({ ...lists, opponents: [...lists.opponents, name] });
+  }, [lists, pushLists]);
 
   const removeOpponent = useCallback((name) => {
-    updateLists({ ...lists, opponents: lists.opponents.filter(o => o !== name) });
-  }, [lists, updateLists]);
+    pushLists({ ...lists, opponents: lists.opponents.filter(o => o !== name) });
+  }, [lists, pushLists]);
 
   const renameOpponent = useCallback((oldName, newName) => {
     if (!newName) return;
-    updateLists({ ...lists, opponents: lists.opponents.map(o => o === oldName ? newName : o) });
-  }, [lists, updateLists]);
+    pushLists({ ...lists, opponents: lists.opponents.map(o => o === oldName ? newName : o) });
+  }, [lists, pushLists]);
 
   const stats = {
     totalMatches: matches.length,
