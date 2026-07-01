@@ -79,28 +79,56 @@ export function AppProvider({ children }) {
     return () => { if (unsub) unsub(); };
   }, []);
 
-  // Firestore real-time sync (always-on, efficient by design)
+  // ─── Firestore real-time sync ─────────────────────────────────
+  // SINGLE source of truth: onSnapshot updates matches from Firestore.
+  // addMatch/updateMatch/deleteMatch do NOT manually update local state
+  // on success — the onSnapshot callback handles it, which:
+  //   1) Prevents duplicate records (critical fix for "tạo 2 bản ghi")
+  //   2) Ensures cross-device sync works seamlessly
   useEffect(() => {
     let unsubscribe;
-    try {
-      const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
-      unsubscribe = onSnapshot(q, (snapshot) => {
-        // Only apply if no local writes pending (avoids flash)
-        const fbMatches = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (fbMatches.length > 0) {
+    let retryTimer;
+
+    const startSync = () => {
+      if (unsubscribe) return;
+      try {
+        const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
+        unsubscribe = onSnapshot(q, (snapshot) => {
+          const fbMatches = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          // Always update — even when empty (handles "delete all" case)
           setMatches(fbMatches);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(fbMatches));
-        }
-        setFirebaseReady(true);
-      }, (err) => {
-        console.warn('Firestore sync unavailable:', err.message);
+          setFirebaseReady(true);
+        }, (err) => {
+          console.warn('Firestore sync unavailable:', err.message);
+          setFirebaseReady(false);
+        });
+      } catch (e) {
+        console.warn('Firebase not configured yet');
         setFirebaseReady(false);
-      });
-    } catch (e) {
-      console.warn('Firebase not configured yet');
-      setFirebaseReady(false);
-    }
-    return () => { if (unsubscribe) unsubscribe(); };
+      }
+    };
+
+    const stopSync = () => {
+      if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+    };
+
+    startSync();
+
+    // Re-sync when tab becomes active (cross-device: Mobile ↔ PC)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        stopSync();
+        retryTimer = setTimeout(startSync, 200);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      stopSync();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   // Backup matches to localStorage
@@ -118,7 +146,9 @@ export function AppProvider({ children }) {
     document.documentElement.classList.toggle('dark', settings.theme === 'dark');
   }, [settings.theme]);
 
-  // -- CRITICAL FIX: use Firestore's auto-generated doc ID so update/delete work --
+  // ─── CRUD: do NOT manually setMatches on success ─────────────
+  // onSnapshot fires automatically after Firestore writes.
+  // Manual updates cause duplicates ("tạo 2 bản ghi giống hệt nhau").
   const addMatch = useCallback(async (match) => {
     const matchData = {
       ...match,
@@ -127,27 +157,25 @@ export function AppProvider({ children }) {
     };
     try {
       const docRef = await addDoc(collection(db, 'matches'), matchData);
-      const newMatch = { id: docRef.id, ...matchData };
-      setMatches(prev => [newMatch, ...prev]);
-      return newMatch;
+      return { id: docRef.id, ...matchData };
     } catch (e) {
       console.warn('Firestore add failed:', e.message);
-      // Fallback: use local ID if Firestore fails
+      // Fallback: only add locally if Firestore unavailable
       const fallback = { id: 'local_' + Date.now(), ...matchData };
       setMatches(prev => [fallback, ...prev]);
     }
   }, [user]);
 
   const updateMatch = useCallback(async (id, updates) => {
-    setMatches(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
     try { await updateDoc(doc(db, 'matches', id), updates); }
     catch (e) { console.warn('Firestore update failed:', e.message); }
+    // No local setMatches — onSnapshot handles it
   }, []);
 
   const deleteMatch = useCallback(async (id) => {
-    setMatches(prev => prev.filter(m => m.id !== id));
     try { await deleteDoc(doc(db, 'matches', id)); }
     catch (e) { console.warn('Firestore delete failed:', e.message); }
+    // No local setMatches — onSnapshot handles it
   }, []);
 
   const toggleLang = useCallback(() => {
