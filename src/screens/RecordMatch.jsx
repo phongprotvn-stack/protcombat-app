@@ -209,13 +209,13 @@ export default function RecordMatch() {
             <ChevronRight size={16} color="var(--color-text-muted)" strokeWidth={2} />
           </div>
 
-          {/* Calendar popover ABOVE-LEFT */}
+          {/* Calendar popover ABOVE-LEFT — compact mobile style */}
           {showDatePicker && (
             <div style={{
               position: 'absolute',
               bottom: '100%',
-              left: 0,
-              right: 0,
+              left: '50%',
+              transform: 'translateX(-50%)',
               zIndex: 300,
               marginBottom: 8,
               animation: 'fadeIn 0.18s ease',
@@ -485,39 +485,42 @@ function DatePickerPopup({ selected, lang, onSelect, onClose }) {
   return (
     <div style={{
       background: 'var(--color-card)',
-      borderRadius: 20, padding: '14px 14px 10px',
-      boxShadow: '0 12px 40px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)',
+      borderRadius: 16, padding: '10px 10px 8px',
+      boxShadow: '0 8px 30px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08)',
+      width: 260,
     }}>
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
       }}>
         <button onClick={prevMonth} style={{
-          border: 'none', background: '#F4F4F6', borderRadius: 10,
-          width: 30, height: 30, display: 'flex', alignItems: 'center',
+          border: 'none', background: 'transparent',
+          width: 28, height: 28, display: 'flex', alignItems: 'center',
           justifyContent: 'center', cursor: 'pointer',
           color: 'var(--color-text-primary)',
+          borderRadius: 8,
         }}>
           <ChevronLeft size={14} strokeWidth={2.5} />
         </button>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.2px' }}>
           {getMonthName(viewMonth, lang)} {viewYear}
         </div>
         <button onClick={nextMonth} style={{
-          border: 'none', background: '#F4F4F6', borderRadius: 10,
-          width: 30, height: 30, display: 'flex', alignItems: 'center',
+          border: 'none', background: 'transparent',
+          width: 28, height: 28, display: 'flex', alignItems: 'center',
           justifyContent: 'center', cursor: 'pointer',
           color: 'var(--color-text-primary)',
+          borderRadius: 8,
         }}>
           <ChevronRight size={14} strokeWidth={2.5} />
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, marginBottom: 3 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1 }}>
         {weekdays.map((wd, i) => (
           <div key={i} style={{
-            textAlign: 'center', fontSize: 10, fontWeight: 700,
+            textAlign: 'center', fontSize: 9, fontWeight: 700,
             color: i === 0 || i === 6 ? '#E6002D' : 'var(--color-text-muted)',
-            padding: '3px 0',
+            padding: '2px 0',
           }}>{wd}</div>
         ))}
       </div>
@@ -531,18 +534,18 @@ function DatePickerPopup({ selected, lang, onSelect, onClose }) {
           return (
             <button key={i} onClick={() => onSelect(dateStr)}
               style={{
-                aspectRatio: '1', border: 'none',
+                width: 34, height: 34, border: 'none',
                 background: isSelected ? 'var(--color-primary)' : 'transparent',
-                borderRadius: 10, fontSize: 12, fontWeight: isSelected ? 700 : (isToday ? 700 : 500),
+                borderRadius: 8, fontSize: 13, fontWeight: isSelected ? 700 : (isToday ? 700 : 500),
                 color: isSelected ? 'white' : (isToday ? 'var(--color-primary)' : 'var(--color-text-primary)'),
                 cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'all 0.12s', position: 'relative',
+                transition: 'all 0.12s', position: 'relative', margin: '0 auto',
               }}
             >
               {d}
               {isToday && !isSelected && (
                 <div style={{
-                  position: 'absolute', bottom: 2, width: 3, height: 3,
+                  position: 'absolute', bottom: 3, width: 4, height: 4,
                   borderRadius: '50%', background: 'var(--color-primary)',
                 }} />
               )}
@@ -551,11 +554,11 @@ function DatePickerPopup({ selected, lang, onSelect, onClose }) {
         })}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
         <button onClick={() => onSelect(dateToStr(new Date()))}
           style={{
-            border: 'none', background: '#F4F4F6', borderRadius: 12,
-            padding: '6px 16px', fontSize: 11, fontWeight: 700,
+            border: 'none', background: '#F4F4F6', borderRadius: 10,
+            padding: '5px 14px', fontSize: 11, fontWeight: 700,
             cursor: 'pointer', color: 'var(--color-primary)',
           }}
         >{lang === 'vi' ? '📅 Hôm nay' : '📅 Today'}</button>

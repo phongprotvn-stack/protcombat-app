@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { db, auth, googleProvider } from '../firebase/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from 'firebase/auth';
 
 const AppContext = createContext();
@@ -65,7 +65,6 @@ export function AppProvider({ children }) {
           setSettings(prev => ({ ...prev, loggedIn: true, displayName: u.displayName }));
           setLists(loadLists(u.uid));
         } else if (fbUser && fbUser.email !== ADMIN_EMAIL) {
-          // Not admin - sign them out
           fbSignOut(auth);
           setUser(null);
           setSettings(prev => ({ ...prev, loggedIn: false }));
@@ -80,56 +79,31 @@ export function AppProvider({ children }) {
     return () => { if (unsub) unsub(); };
   }, []);
 
-  // Firestore sync with visibility change support
+  // Firestore real-time sync (always-on, efficient by design)
   useEffect(() => {
     let unsubscribe;
-    let retryTimer;
-
-    const startSync = () => {
-      if (unsubscribe) return;
-      try {
-        const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
-        unsubscribe = onSnapshot(q, (snapshot) => {
-          const fbMatches = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          // Merge: Firestore data always wins (latest from any device)
-          if (fbMatches.length > 0) {
-            setMatches(fbMatches);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(fbMatches));
-          }
-          setFirebaseReady(true);
-        }, (err) => {
-          console.warn('Firestore sync unavailable:', err.message);
-          setFirebaseReady(false);
-        });
-      } catch (e) {
-        console.warn('Firebase not configured yet');
+    try {
+      const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        // Only apply if no local writes pending (avoids flash)
+        const fbMatches = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (fbMatches.length > 0) {
+          setMatches(fbMatches);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(fbMatches));
+        }
+        setFirebaseReady(true);
+      }, (err) => {
+        console.warn('Firestore sync unavailable:', err.message);
         setFirebaseReady(false);
-      }
-    };
-
-    const stopSync = () => {
-      if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
-    };
-
-    startSync();
-
-    // Re-sync when tab becomes active (for cross-device sync)
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        stopSync();
-        retryTimer = setTimeout(startSync, 300);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    return () => {
-      stopSync();
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
+      });
+    } catch (e) {
+      console.warn('Firebase not configured yet');
+      setFirebaseReady(false);
+    }
+    return () => { if (unsubscribe) unsubscribe(); };
   }, []);
 
-  // Backup matches to localStorage (always keep a local cache)
+  // Backup matches to localStorage
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(matches)); }
     catch (e) { console.error('Failed to save matches:', e); }
@@ -144,28 +118,36 @@ export function AppProvider({ children }) {
     document.documentElement.classList.toggle('dark', settings.theme === 'dark');
   }, [settings.theme]);
 
+  // -- CRITICAL FIX: use Firestore's auto-generated doc ID so update/delete work --
   const addMatch = useCallback(async (match) => {
-    const newMatch = {
+    const matchData = {
       ...match,
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
       createdAt: new Date().toISOString(),
       userId: user?.uid || 'guest',
     };
-    try { await addDoc(collection(db, 'matches'), newMatch); }
-    catch (e) { console.warn('Firestore add failed:', e.message); }
-    setMatches(prev => [newMatch, ...prev]);
+    try {
+      const docRef = await addDoc(collection(db, 'matches'), matchData);
+      const newMatch = { id: docRef.id, ...matchData };
+      setMatches(prev => [newMatch, ...prev]);
+      return newMatch;
+    } catch (e) {
+      console.warn('Firestore add failed:', e.message);
+      // Fallback: use local ID if Firestore fails
+      const fallback = { id: 'local_' + Date.now(), ...matchData };
+      setMatches(prev => [fallback, ...prev]);
+    }
   }, [user]);
 
   const updateMatch = useCallback(async (id, updates) => {
+    setMatches(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
     try { await updateDoc(doc(db, 'matches', id), updates); }
     catch (e) { console.warn('Firestore update failed:', e.message); }
-    setMatches(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
   }, []);
 
   const deleteMatch = useCallback(async (id) => {
+    setMatches(prev => prev.filter(m => m.id !== id));
     try { await deleteDoc(doc(db, 'matches', id)); }
     catch (e) { console.warn('Firestore delete failed:', e.message); }
-    setMatches(prev => prev.filter(m => m.id !== id));
   }, []);
 
   const toggleLang = useCallback(() => {

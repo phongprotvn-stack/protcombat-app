@@ -9,7 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'robots.txt', 'apple-touch-icon.png'],
+      includeAssets: ['icon-192.png', 'icon-512.png', 'icon-152.png', 'icon-120.png', 'apple-touch-icon.png', 'favicon.ico'],
       manifest: {
         name: 'PROT COMBAT',
         short_name: 'PROT COMBAT',
@@ -20,9 +20,9 @@ export default defineConfig({
         display_override: ['window-controls-overlay', 'standalone'],
         orientation: 'portrait',
         icons: [
-          { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ]
       },
       workbox: {
