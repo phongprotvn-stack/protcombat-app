@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trophy, Search, Swords, ChevronRight, Pencil, Trash2, Flame, BarChart3, Check, X } from 'lucide-react';
+import { Trophy, Search, Swords, ChevronRight, Pencil, Trash2, Flame, BarChart3, Check, X, Calendar, User, Users, Trophy as TrophyIcon, Volleyball, NotebookPen } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { t, formatDate } from '../i18n';
 
@@ -8,6 +8,7 @@ export default function Home() {
   const lang = settings.lang;
   const greetName = settings.displayName || 'Prot';
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [detailMatch, setDetailMatch] = useState(null);
 
   const [showOpponentSearch, setShowOpponentSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -241,7 +242,8 @@ export default function Home() {
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '14px 16px',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
+                  <div onClick={() => setDetailMatch(match)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                     <div className="icon-badge" style={{
                       width: 12, height: 12, borderRadius: '50%',
                       background: match.result === 'win' ? 'var(--grad-primary)' : '#D1D5DB', flexShrink: 0,
@@ -316,9 +318,216 @@ export default function Home() {
 
         <div style={{ height: 20 }} />
       </div>
+
+      {/* ===== MATCH DETAIL MODAL ===== */}
+      {detailMatch && (
+        <MatchDetailModal match={detailMatch} lang={lang}
+          onClose={() => setDetailMatch(null)}
+          onEdit={(m) => { setDetailMatch(null); handleEdit(m); }}
+          onDelete={(id) => { handleDelete(id); setDetailMatch(null); }}
+        />
+      )}
     </div>
   );
 }
+
+function MatchDetailModal({ match, lang, onClose, onEdit, onDelete }) {
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + 'T00:00:00');
+    const dayNames = lang === 'vi'
+      ? ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+      : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const day = dayNames[d.getDay()];
+    const dd = d.getDate();
+    const mm = d.getMonth() + 1;
+    const yyyy = d.getFullYear();
+    if (lang === 'vi') return `${day}, ${dd} thg ${mm}, ${yyyy}`;
+    return `${day}, ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${dd}, ${yyyy}`;
+  };
+
+  const mixTypeLabels = {
+    'male-male': lang === 'vi' ? 'Nam-Nam' : 'Male-Male',
+    'male-female': lang === 'vi' ? 'Nam-Nữ' : 'Male-Female',
+    'female-female': lang === 'vi' ? 'Nữ-Nữ' : 'Female-Female',
+  };
+
+  const serveLabel = match.serve === 'before'
+    ? (lang === 'vi' ? 'Trước' : 'Before')
+    : (lang === 'vi' ? 'Sau' : 'After');
+
+  return (
+    <div onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 300,
+        background: 'rgba(0,0,0,0.4)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        animation: 'fadeIn 0.2s ease',
+      }}
+    >
+      <div onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--color-card)', borderRadius: '28px 28px 0 0',
+          width: '100%', maxWidth: 420, maxHeight: '80vh', overflow: 'hidden',
+          animation: 'slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '20px 24px', borderBottom: '1px solid #F1F1F4',
+        }}>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>
+            {lang === 'vi' ? 'Chi tiết trận đấu' : 'Match Details'}
+          </div>
+          <button onClick={onClose}
+            style={{
+              border: 'none', background: '#F4F4F6', borderRadius: 12,
+              width: 32, height: 32, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--color-text-muted)',
+            }}
+          ><X size={18} /></button>
+        </div>
+
+        <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px' }}>
+          {/* Mode + Result badge */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div style={{
+              padding: '4px 12px', borderRadius: 999,
+              background: match.doubles ? 'rgba(90,200,250,0.12)' : 'rgba(90,200,250,0.12)',
+              fontSize: 12, fontWeight: 700,
+              color: match.doubles ? '#0A84FF' : '#0A84FF',
+            }}>
+              {match.doubles
+                ? (lang === 'vi' ? 'Đánh Đôi' : 'Doubles')
+                : (lang === 'vi' ? 'Đánh Đơn' : 'Singles')}
+            </div>
+            <div style={{
+              padding: '4px 14px', borderRadius: 999,
+              background: match.result === 'win' ? 'rgba(230,0,45,0.1)' : '#F4F4F6',
+              fontSize: 13, fontWeight: 800,
+              color: match.result === 'win' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+            }}>
+              {match.result === 'win'
+                ? (lang === 'vi' ? 'THẮNG' : 'WIN')
+                : (lang === 'vi' ? 'THUA' : 'LOSS')}
+            </div>
+          </div>
+
+          {/* Score big */}
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <div style={{ fontSize: 48, fontWeight: 800, letterSpacing: 4 }}>
+              <span style={{ color: match.result === 'win' ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
+                {match.myScore || 0}
+              </span>
+              <span style={{ color: '#D1D5DB', margin: '0 8px' }}>:</span>
+              <span style={{ color: match.result === 'win' ? 'var(--color-text-secondary)' : 'var(--color-primary)' }}>
+                {match.opScore || 0}
+              </span>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-secondary)', marginTop: 6 }}>
+              vs <strong>{match.opponent || (lang === 'vi' ? 'Vô danh' : 'Anonymous')}</strong>
+            </div>
+          </div>
+
+          {/* Info rows */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="detail-row">
+              <Calendar size={16} color="var(--color-text-muted)" />
+              <span style={dlStyle}>{lang === 'vi' ? 'Ngày' : 'Date'}</span>
+              <span style={dvStyle}>{formatDate(match.date)}</span>
+            </div>
+
+            {match.doubles && match.teammate && (
+              <div className="detail-row">
+                <Users size={16} color="var(--color-text-muted)" />
+                <span style={dlStyle}>{lang === 'vi' ? 'Đồng đội' : 'Teammate'}</span>
+                <span style={dvStyle}>{match.teammate}</span>
+              </div>
+            )}
+
+            {match.doubles && match.mixType && (
+              <div className="detail-row">
+                <User size={16} color="var(--color-text-muted)" />
+                <span style={dlStyle}>{lang === 'vi' ? 'Hỗn hợp' : 'Mixed'}</span>
+                <span style={dvStyle}>{mixTypeLabels[match.mixType] || match.mixType}</span>
+              </div>
+            )}
+
+            {match.skillLevel && (
+              <div className="detail-row">
+                <TrophyIcon size={16} color="var(--color-text-muted)" />
+                <span style={dlStyle}>{lang === 'vi' ? 'Trình độ' : 'Skill Level'}</span>
+                <span style={dvStyle}>{t('level' + match.skillLevel.replace('level', ''), lang) || match.skillLevel}</span>
+              </div>
+            )}
+
+            <div className="detail-row">
+              <Volleyball size={16} color="var(--color-text-muted)" />
+              <span style={dlStyle}>{lang === 'vi' ? 'Giao bóng' : 'Serve'}</span>
+              <span style={dvStyle}>{serveLabel}</span>
+            </div>
+
+            {match.note && (
+              <div className="detail-row" style={{ alignItems: 'flex-start' }}>
+                <NotebookPen size={16} color="var(--color-text-muted)" style={{ marginTop: 2 }} />
+                <span style={dlStyle}>{lang === 'vi' ? 'Ghi chú' : 'Note'}</span>
+                <span style={{ ...dvStyle, color: 'var(--color-text-primary)' }}>{match.note}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 10, marginTop: 28 }}>
+            <button onClick={() => onEdit(match)}
+              style={{
+                flex: 1, padding: '14px', borderRadius: 18, border: '1.5px solid var(--color-primary)',
+                background: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: 800,
+                color: 'var(--color-primary)',
+              }}
+            >
+              {lang === 'vi' ? '✏️ CHỈNH SỬA' : '✏️ EDIT'}
+            </button>
+            {!confirmDel ? (
+              <button onClick={() => setConfirmDel(true)}
+                style={{
+                  padding: '14px 20px', borderRadius: 18, border: 'none',
+                  background: '#FEE2E2', cursor: 'pointer', fontSize: 14, fontWeight: 800,
+                  color: '#DC2626',
+                }}
+              >
+                <Trash2 size={18} />
+              </button>
+            ) : (
+              <button onClick={() => onDelete(match.id)}
+                style={{
+                  padding: '14px 20px', borderRadius: 18, border: 'none',
+                  background: 'var(--color-primary)', cursor: 'pointer', fontSize: 14, fontWeight: 800,
+                  color: 'white',
+                }}
+              >
+                {lang === 'vi' ? 'XÓA' : 'DELETE'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const dlStyle = {
+  fontSize: 13, fontWeight: 600, color: 'var(--color-text-muted)',
+  minWidth: 80, flexShrink: 0,
+};
+const dvStyle = {
+  fontSize: 14, fontWeight: 700, color: 'var(--color-text-secondary)',
+  flex: 1, textAlign: 'right',
+};
 
 function StatBlock({ value, label, accent, icon }) {
   return (

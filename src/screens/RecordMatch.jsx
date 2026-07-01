@@ -328,7 +328,7 @@ export default function RecordMatch() {
 
       {/* ===== TEAMMATE PICKER MODAL ===== */}
       {showTeammatePicker && (
-        <ListPickerModal title={t('teammate', lang)} items={lists.teammates}
+        <TeammatePickerModal title={t('teammate', lang)} items={lists.teammates}
           selected={teammate} lang={lang}
           onSelect={(name) => { setTeammate(name); setShowTeammatePicker(false); }}
           onClose={() => setShowTeammatePicker(false)}
@@ -603,6 +603,105 @@ function DoublesOpponentPickerModal({ mixType, setMixType, selected, lang, items
               </>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== TEAMMATE PICKER — includes Vô danh default ===== */
+function TeammatePickerModal({ title, items, selected, lang, onSelect, onClose }) {
+  return (
+    <div onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 300,
+        background: 'rgba(0,0,0,0.4)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        animation: 'fadeIn 0.2s ease',
+      }}
+    >
+      <div onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--color-card)', borderRadius: '28px 28px 0 0',
+          width: '100%', maxWidth: 420, maxHeight: '70vh', overflow: 'hidden',
+          animation: 'slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '20px 24px', borderBottom: '1px solid #F1F1F4',
+        }}>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>{title}</div>
+          <button onClick={onClose}
+            style={{
+              border: 'none', background: '#F4F4F6', borderRadius: 12,
+              width: 32, height: 32, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--color-text-muted)',
+            }}
+          ><X size={18} /></button>
+        </div>
+
+        <div style={{ overflowY: 'auto', padding: '4px 0', flex: 1 }}>
+          {/* Vô danh default option */}
+          <div onClick={() => onSelect('')}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 24px', cursor: 'pointer',
+              borderBottom: '1px solid #F8F8FA',
+            }}
+          >
+            <span style={{
+              fontSize: 15, fontWeight: selected === '' ? 700 : 500,
+              color: selected === '' ? 'var(--color-text-primary)' : '#B0B0B0',
+            }}>
+              {lang === 'vi' ? 'Vô danh' : 'Anonymous'}
+            </span>
+            <div style={{
+              width: 22, height: 22, borderRadius: '50%',
+              border: selected === '' ? '5px solid var(--color-primary)' : '2px solid #D1D5DB',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, transition: 'all 0.2s',
+            }}>
+              {selected === '' && <div style={{
+                width: 12, height: 12, borderRadius: '50%',
+                background: 'var(--color-primary)',
+              }} />}
+            </div>
+          </div>
+          {/* Account teammates */}
+          {items.length === 0 ? (
+            <div style={{
+              textAlign: 'center', padding: 24, color: 'var(--color-text-muted)', fontSize: 14,
+            }}>
+              {lang === 'vi' ? 'Chưa có dữ liệu. Thêm ở trang Tài khoản.' : 'No items yet. Add in Account page.'}
+            </div>
+          ) : items.map((name) => (
+            <div key={name} onClick={() => onSelect(name)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '16px 24px', cursor: 'pointer',
+                borderBottom: '1px solid #F8F8FA',
+              }}
+            >
+              <span style={{
+                fontSize: 15, fontWeight: name === selected ? 700 : 500,
+                color: 'var(--color-text-primary)',
+              }}>{name}</span>
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%',
+                border: name === selected ? '5px solid var(--color-primary)' : '2px solid #D1D5DB',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0, transition: 'all 0.2s',
+              }}>
+                {name === selected && <div style={{
+                  width: 12, height: 12, borderRadius: '50%',
+                  background: 'var(--color-primary)',
+                }} />}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
