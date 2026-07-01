@@ -367,7 +367,7 @@ function formatDateDisplay(dateStr, lang) {
   const d = new Date(dateStr + 'T00:00:00');
   const day = d.getDate();
   const month = lang === 'vi'
-    ? `Th${day > 1 ? 'á' : ''}ng ${d.getMonth() + 1}`
+    ? `Tháng ${d.getMonth() + 1}`
     : getMonthName(d.getMonth(), lang);
   const year = d.getFullYear();
   return lang === 'vi' ? `${getDayName(dateStr, lang)}, ${day} ${month}, ${year}` : `${getDayName(dateStr, lang)}, ${month} ${day}, ${year}`;
