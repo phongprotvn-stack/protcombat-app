@@ -11,7 +11,7 @@ const LISTS_KEY = 'protcombat_lists';
 
 const ADMIN_EMAIL = 'phongprotvn@gmail.com';
 
-const DEFAULT_TEAMMATES = ['PROT', 'Phong', 'Huy', 'Long', 'Minh', 'Anh', 'Tuấn', 'Hùng', 'Dũng'];
+const DEFAULT_TEAMMATES = [];
 const DEFAULT_OPPONENTS = [];
 
 const defaultSettings = {
