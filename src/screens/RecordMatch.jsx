@@ -220,7 +220,7 @@ export default function RecordMatch() {
               transform: 'translateX(-50%)',
               zIndex: 300,
               marginBottom: 8,
-              animation: 'fadeIn 0.18s ease',
+              animation: 'fadeInOpacity 0.18s ease',
             }}>
               <DatePickerPopup selected={date} lang={lang}
                 onSelect={(d) => { setDate(d); setShowDatePicker(false); }}

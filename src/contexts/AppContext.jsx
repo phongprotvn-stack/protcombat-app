@@ -94,7 +94,7 @@ export function AppProvider({ children }) {
       try {
         const q = query(collection(db, 'matches'), orderBy('createdAt', 'desc'));
         unsubscribe = onSnapshot(q, (snapshot) => {
-          const fbMatches = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          const fbMatches = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
           setMatches(fbMatches);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(fbMatches));
           setFirebaseReady(true);
