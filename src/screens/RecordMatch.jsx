@@ -29,6 +29,7 @@ export default function RecordMatch() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTeammatePicker, setShowTeammatePicker] = useState(false);
   const [showOpponentPicker, setShowOpponentPicker] = useState(false);
+  const [mixType, setMixType] = useState('');
   const dateRef = useRef(null);
 
   // Load editing match data
@@ -43,6 +44,7 @@ export default function RecordMatch() {
       setTeammate(editingMatch.teammate || '');
       setSkillLevel(editingMatch.skillLevel || '');
       setNote(editingMatch.note || '');
+      setMixType(editingMatch.mixType || '');
     }
   }, [editingMatch]);
 
@@ -66,7 +68,7 @@ export default function RecordMatch() {
         opponent: finalOpponent,
         teammate: teammate || '',
         skillLevel: skillLevel || '',
-        note, result,
+        note, result, mixType: doubles ? mixType : '',
       });
       showToast(lang === 'vi' ? '✅ Đã cập nhật trận đấu!' : '✅ Match updated!');
       setEditingMatch(null);
@@ -77,14 +79,14 @@ export default function RecordMatch() {
         opponent: finalOpponent,
         teammate: teammate || '',
         skillLevel: skillLevel || '',
-        note, result,
+        note, result, mixType: doubles ? mixType : '',
       });
       showToast(t('saveSuccess', lang));
     }
 
     setMyScore(0); setOpScore(0);
     setOpponent(''); setTeammate(''); setSkillLevel('');
-    setNote(''); setServe('before'); setDate(todayStr);
+    setNote(''); setServe('before'); setDate(todayStr); setMixType('');
   };
 
   return (
@@ -333,13 +335,23 @@ export default function RecordMatch() {
         />
       )}
 
-      {/* ===== OPPONENT PICKER MODAL ===== */}
+      {/* ===== OPPONENT PICKER — doubles: dual-section modal ===== */}
       {showOpponentPicker && (
-        <ListPickerModal title={t('opponent', lang)} items={lists.opponents}
-          selected={opponent} lang={lang}
-          onSelect={(name) => { setOpponent(name); setShowOpponentPicker(false); }}
-          onClose={() => setShowOpponentPicker(false)}
-        />
+        doubles ? (
+          <DoublesOpponentPickerModal
+            mixType={mixType} setMixType={setMixType}
+            selected={opponent} lang={lang}
+            items={lists.opponents}
+            onSelect={(name) => { setOpponent(name); setShowOpponentPicker(false); }}
+            onClose={() => setShowOpponentPicker(false)}
+          />
+        ) : (
+          <ListPickerModal title={t('opponent', lang)} items={lists.opponents}
+            selected={opponent} lang={lang}
+            onSelect={(name) => { setOpponent(name); setShowOpponentPicker(false); }}
+            onClose={() => setShowOpponentPicker(false)}
+          />
+        )
       )}
 
       {toast && <div className="toast show">{toast}</div>}
@@ -434,6 +446,163 @@ function ListPickerModal({ title, items, selected, lang, onSelect, onClose }) {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== DOUBLES OPPONENT PICKER — 2 sections: Hỗn hợp + Tên ===== */
+function DoublesOpponentPickerModal({ mixType, setMixType, selected, lang, items, onSelect, onClose }) {
+  const MIX_OPTIONS = [
+    { key: 'male-male', label: lang === 'vi' ? 'Nam-Nam' : 'Male-Male' },
+    { key: 'male-female', label: lang === 'vi' ? 'Nam-Nữ' : 'Male-Female' },
+    { key: 'female-female', label: lang === 'vi' ? 'Nữ-Nữ' : 'Female-Female' },
+  ];
+
+  return (
+    <div onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 300,
+        background: 'rgba(0,0,0,0.4)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        animation: 'fadeIn 0.2s ease',
+      }}
+    >
+      <div onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--color-card)', borderRadius: '28px 28px 0 0',
+          width: '100%', maxWidth: 420, maxHeight: '75vh', overflow: 'hidden',
+          animation: 'slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '20px 24px', borderBottom: '1px solid #F1F1F4',
+        }}>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>
+            {lang === 'vi' ? 'Đối thủ' : 'Opponent'}
+          </div>
+          <button onClick={onClose}
+            style={{
+              border: 'none', background: '#F4F4F6', borderRadius: 12,
+              width: 32, height: 32, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--color-text-muted)',
+            }}
+          ><X size={18} /></button>
+        </div>
+
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+
+          {/* Section 1: Hỗn hợp (Mixed Type) */}
+          <div style={{ padding: '16px 24px 8px' }}>
+            <div style={{
+              fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)',
+              textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10,
+            }}>
+              {lang === 'vi' ? 'Hỗn hợp' : 'Mixed'}
+            </div>
+            {MIX_OPTIONS.map(opt => (
+              <div key={opt.key} onClick={() => setMixType(opt.key)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '14px 0', cursor: 'pointer',
+                  borderBottom: '1px solid #F8F8FA',
+                }}
+              >
+                <span style={{
+                  fontSize: 15, fontWeight: mixType === opt.key ? 700 : 500,
+                  color: 'var(--color-text-primary)',
+                }}>{opt.label}</span>
+                <div style={{
+                  width: 22, height: 22, borderRadius: '50%',
+                  border: mixType === opt.key ? '5px solid var(--color-primary)' : '2px solid #D1D5DB',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, transition: 'all 0.2s',
+                }}>
+                  {mixType === opt.key && <div style={{
+                    width: 12, height: 12, borderRadius: '50%',
+                    background: 'var(--color-primary)',
+                  }} />}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Section 2: Tên (Name) */}
+          <div style={{ padding: '8px 24px 16px' }}>
+            <div style={{
+              fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)',
+              textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10,
+            }}>
+              {lang === 'vi' ? 'Tên' : 'Name'}
+            </div>
+            {items.length === 0 ? (
+              <div style={{
+                textAlign: 'center', padding: 24, color: 'var(--color-text-muted)', fontSize: 14,
+              }}>
+                {lang === 'vi' ? 'Chưa có dữ liệu. Thêm ở trang Tài khoản.' : 'No items yet. Add in Account page.'}
+              </div>
+            ) : (
+              <>
+                {/* Default "Vô danh" option */}
+                <div onClick={() => { onSelect(''); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '14px 0', cursor: 'pointer',
+                    borderBottom: '1px solid #F8F8FA',
+                  }}
+                >
+                  <span style={{
+                    fontSize: 15, fontWeight: selected === '' ? 700 : 500,
+                    color: selected === '' ? 'var(--color-text-primary)' : '#B0B0B0',
+                  }}>
+                    {lang === 'vi' ? 'Vô danh' : 'Anonymous'}
+                  </span>
+                  <div style={{
+                    width: 22, height: 22, borderRadius: '50%',
+                    border: selected === '' ? '5px solid var(--color-primary)' : '2px solid #D1D5DB',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0, transition: 'all 0.2s',
+                  }}>
+                    {selected === '' && <div style={{
+                      width: 12, height: 12, borderRadius: '50%',
+                      background: 'var(--color-primary)',
+                    }} />}
+                  </div>
+                </div>
+                {/* Account opponent names */}
+                {items.map((name) => (
+                  <div key={name} onClick={() => onSelect(name)}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '14px 0', cursor: 'pointer',
+                      borderBottom: '1px solid #F8F8FA',
+                    }}
+                  >
+                    <span style={{
+                      fontSize: 15, fontWeight: name === selected ? 700 : 500,
+                      color: 'var(--color-text-primary)',
+                    }}>{name}</span>
+                    <div style={{
+                      width: 22, height: 22, borderRadius: '50%',
+                      border: name === selected ? '5px solid var(--color-primary)' : '2px solid #D1D5DB',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0, transition: 'all 0.2s',
+                    }}>
+                      {name === selected && <div style={{
+                        width: 12, height: 12, borderRadius: '50%',
+                        background: 'var(--color-primary)',
+                      }} />}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

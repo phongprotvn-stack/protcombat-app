@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { db, auth, googleProvider } from '../firebase/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, setDoc, getDoc, getDocs, limit } from 'firebase/firestore';
 import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from 'firebase/auth';
 
 const AppContext = createContext();
@@ -216,6 +216,17 @@ export function AppProvider({ children }) {
     catch (e) { console.warn('Firestore update failed:', e.message); }
   }, []);
 
+  const clearAllMatches = useCallback(async () => {
+    try {
+      const q = query(collection(db, 'matches'), limit(500));
+      const snapshot = await getDocs(q);
+      const promises = snapshot.docs.map(d => deleteDoc(doc(db, 'matches', d.id)));
+      await Promise.all(promises);
+    } catch (e) {
+      console.warn('Clear all matches failed:', e.message);
+    }
+  }, []);
+
   const deleteMatch = useCallback(async (id) => {
     try { await deleteDoc(doc(db, 'matches', id)); }
     catch (e) { console.warn('Firestore delete failed:', e.message); }
@@ -337,7 +348,7 @@ export function AppProvider({ children }) {
   const value = {
     matches, settings, activeTab, stats, firebaseReady, user, lists,
     editingMatch, setEditingMatch,
-    addMatch, updateMatch, deleteMatch,
+    addMatch, updateMatch, deleteMatch, clearAllMatches,
     setActiveTab, toggleLang, toggleTheme, setSettings,
     signInWithGoogle, signOutUser,
     addTeammate, removeTeammate, renameTeammate,

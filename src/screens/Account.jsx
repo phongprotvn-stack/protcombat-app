@@ -4,7 +4,7 @@ import { useApp } from '../contexts/AppContext';
 import { t } from '../i18n';
 
 export default function Account() {
-  const { settings, toggleLang, toggleTheme, stats, user, signInWithGoogle, signOutUser, lists, addTeammate, removeTeammate, renameTeammate, addOpponent, removeOpponent, renameOpponent, exportCSV, exportPDF } = useApp();
+  const { settings, toggleLang, toggleTheme, stats, user, signInWithGoogle, signOutUser, lists, addTeammate, removeTeammate, renameTeammate, addOpponent, removeOpponent, renameOpponent, exportCSV, exportPDF, clearAllMatches } = useApp();
   const lang = settings.lang;
 
   const [editingTeammate, setEditingTeammate] = useState(null);
@@ -16,6 +16,7 @@ export default function Account() {
   const [newOpponentName, setNewOpponentName] = useState('');
   const [showAddOpponent, setShowAddOpponent] = useState(false);
   const [editOpponentName, setEditOpponentName] = useState('');
+  const [confirmClear, setConfirmClear] = useState(false);
 
   return (
     <div className="screen screen-enter" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}>
@@ -308,10 +309,49 @@ export default function Account() {
             <Info size={18} color="var(--color-text-secondary)" /> {t('appInfo', lang)}
           </div>
           <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
-            {t('appName', lang)} · {t('version', lang)} 1.3.0
+            {t('appName', lang)} · {t('version', lang)} 1.0.0
           </div>
           <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4 }}>© 2026 PROT COMBAT</div>
         </div>
+
+        {/* Clear All Data (PROT only) */}
+        {user && (
+          <div className="card">
+            {!confirmClear ? (
+              <div className="action-field" onClick={() => setConfirmClear(true)}
+                style={{ cursor: 'pointer', color: '#E6002D' }}>
+                <Trash2 size={17} color="#E6002D" />
+                <span style={{ marginLeft: 8, fontWeight: 700, fontSize: 13 }}>
+                  {lang === 'vi' ? '🗑️ Xóa tất cả dữ liệu' : '🗑️ Clear All Data'}
+                </span>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 12 }}>
+                  {lang === 'vi' ? 'Chắc chắn xóa toàn bộ dữ liệu trận đấu?' : 'Delete all match records?'}
+                </div>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                  <button onClick={() => setConfirmClear(false)}
+                    style={{
+                      padding: '8px 24px', borderRadius: 18, border: '1px solid #F1F1F4',
+                      background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                      color: 'var(--color-text-secondary)',
+                    }}>
+                    {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                  </button>
+                  <button onClick={() => { clearAllMatches(); setConfirmClear(false); }}
+                    style={{
+                      padding: '8px 24px', borderRadius: 18, border: 'none',
+                      background: '#E6002D', cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                      color: 'white',
+                    }}>
+                    {lang === 'vi' ? 'Xóa' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ height: 10 }} />
       </div>
